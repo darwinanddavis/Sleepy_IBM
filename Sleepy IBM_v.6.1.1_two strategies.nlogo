@@ -59,6 +59,7 @@ globals
   starvecount        ; Counter for time spent in starvation state.
   shadecount         ; Counter for time spent searching for shade following a feeding bout.
   transcount         ; Counter for frequency of transitions between any of the three activity states--searching, feeding, resting.
+  socialcount        ; Counter for time spent in socialising state (Optimising only)
   zenith             ; Zenith angle of sun (update-sun procedure).
   tempX
   tempY
@@ -343,8 +344,11 @@ to make-decision
         set activity-state "R"
         stop]
       ]
-      [;set label "Gut is full" ;
-        socialise] ; otherwise, turtle moves during active hours of the day
+      [;set label "Gut is full" ; otherwise, turtle moves during active hours of the day
+        socialise
+        set activity-state "E"
+        plotxy xcor ycor
+        ]
     ]
 
     if (activity-state = "S")
@@ -497,7 +501,7 @@ end
 ;**************************************************************************************************************************
 
 to shade-search
-  set activity-state "S"
+;  set activity-state "S"
   set reserve-level reserve-level - Movement-cost ; add miniscule movement cost to avoid turtle exiting green food patches for one time step when feeding
   set movelist lput Movement-cost movelist
   let local-shade-patches patches with [(distance myself < [vision-range] of turtle 0) and (patch-type = "Shade")]
@@ -541,6 +545,7 @@ end
 to socialise
   set reserve-level reserve-level - Movement-cost ; add miniscule movement cost to avoid turtle exiting green food patches for one time step when feeding
   set movelist lput Movement-cost movelist
+  set socialcount socialcount + 1
   bounce
   lt random 180 - 90
   fd 1
@@ -941,7 +946,7 @@ INPUTBOX
 102
 632
 Movement-cost
-260
+1.0E-9
 1
 0
 Number
@@ -1059,7 +1064,7 @@ PLOT
 254
 Reserve level and starvation reserve over time
 Time
-Reserve
+Reserve (J/cm^3)
 0.0
 10.0
 0.0
@@ -1168,13 +1173,14 @@ Frequency of activity states
 10.0
 true
 true
-"" "let total 0\n\nset-current-plot-pen \"Starving\"\nplot-pen-up plotxy ticks total\nset total starvecount + total \nplot-pen-down plotxy ticks total\n\nset-current-plot-pen \"Resting\"\nplot-pen-up plotxy ticks total\nset total restcount + total \nplot-pen-down plotxy ticks total\n\n\nset-current-plot-pen \"Transcount\"\nplot-pen-up plotxy ticks total\nset total transcount + total\nplot-pen-down plotxy ticks total\n\nset-current-plot-pen \"Searching\"\nplot-pen-up plotxy ticks total\nset total searchcount + total\nplot-pen-down plotxy ticks total\n\nset-current-plot-pen \"Feeding\"\nplot-pen-up plotxy ticks total\nset total feedcount + total\nplot-pen-down plotxy ticks total\n\n;let t2 time-budget-range\n;if ticks > t2         \n;[set-plot-x-range (ticks - t2) ticks]"
+"" "let total 0\n\nset-current-plot-pen \"Starving\"\nplot-pen-up plotxy ticks total\nset total starvecount + total \nplot-pen-down plotxy ticks total\n\nset-current-plot-pen \"Socialising\"\nplot-pen-up plotxy ticks total\nset total socialcount + total \nplot-pen-down plotxy ticks total\n\nset-current-plot-pen \"Resting\"\nplot-pen-up plotxy ticks total\nset total restcount + total \nplot-pen-down plotxy ticks total\n\n\nset-current-plot-pen \"Transcount\"\nplot-pen-up plotxy ticks total\nset total transcount + total\nplot-pen-down plotxy ticks total\n\nset-current-plot-pen \"Searching\"\nplot-pen-up plotxy ticks total\nset total searchcount + total\nplot-pen-down plotxy ticks total\n\nset-current-plot-pen \"Feeding\"\nplot-pen-up plotxy ticks total\nset total feedcount + total\nplot-pen-down plotxy ticks total\n\n;let t2 time-budget-range\n;if ticks > t2         \n;[set-plot-x-range (ticks - t2) ticks]"
 PENS
 "Feeding" 1.0 1 -10899396 true "" ""
 "Searching" 1.0 1 -13345367 true "" ""
 "Transcount" 1.0 1 -7500403 true "" ""
 "Resting" 1.0 1 -16777216 true "" ""
 "Starving" 1.0 1 -2674135 true "" ""
+"Socialising" 1.0 0 -955883 true "" ""
 
 PLOT
 1647
@@ -1321,7 +1327,7 @@ INPUTBOX
 74
 449
 T_b
-30
+3.19
 1
 0
 Number
@@ -1535,7 +1541,7 @@ INPUTBOX
 1737
 825
 V_pres
-434.70211
+434.75663
 1
 0
 Number
@@ -1546,7 +1552,7 @@ INPUTBOX
 1737
 888
 wetstorage
-263.05256
+263.08554
 1
 0
 Number
@@ -1568,7 +1574,7 @@ INPUTBOX
 1737
 953
 wetfood
-26.80706
+25.89657
 1
 0
 Number
@@ -1641,7 +1647,7 @@ PLOT
 1018
 Movement and maintenance costs
 Time
-NIL
+Movement cost (J/cm^3)
 0.0
 10.0
 0.0
@@ -1651,14 +1657,24 @@ false
 "" ""
 PENS
 "Movement cost" 1.0 0 -11221820 true "" ";plot [Movement-cost] of turtle 0\nplot sum movelist"
-"Maintenance cost" 1.0 0 -2064490 true "" "plot [Maintenance-cost] of turtle 0"
+
+MONITOR
+804
+906
+954
+951
+Time spent socialising
+socialcount
+0
+1
+11
 
 @#$#@#$#@
 > ##Version 6.1.1 (30-6-16)
 
 
 > 6.1.1 (25-10-16)
-> Added movement cost plot
+> Added movement cost plot.
 
 > 6.1.1 (24-10-16)
 > Added movement cost to Socialise state (Optimising strategy). Movement cost now added to all movement phases (Searching, Socialising, Shade searching).
@@ -1668,7 +1684,8 @@ PENS
 
 > 6.1.1. (29-6-16)
 
-> Added movement cost variabe to 'to search' and 'to shade-search' procedures (set reserve-level reserve-level - Movement-cost)
+> Added movement cost variable to 'to search' and 'to shade-search' procedures (set reserve-level reserve-level - Movement-cost).
+> Added activity-stte = "S" to shade-search.
 
 > 6.1.1. (16-6-16)
 

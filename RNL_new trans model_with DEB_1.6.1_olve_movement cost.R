@@ -1,5 +1,14 @@
 # RNL_new trans model_with DEB_1.6.1_olve_movement cost
 
+#24-10-16
+# set movement cost to miniscule amount when not searching to fix feeding behav on green food patches (NLCommand("set Movement-cost", 1e-09) 
+# added new direct movement cost (loco)
+# changed V_pres to debout[2]
+
+#20-10-16
+# updated movement cost loop to reset to 0 in NL when not searching
+# added NL_strategy variable to NL setup ... in progress
+
 #28-7-16
 # added direct movement cost (loco) estimated from ml 02 g-km (John-Adler 1986) and converted to J 
 
@@ -9,6 +18,7 @@
 # updated NL_move var
 # uses DEB model that includes direct movement cost (cost of locomotion)  ('DEB_movecost.R')
 # changed all instances of Min-T_b and Max-T_b to T_opt_lower and T_opt_upper to relfect changes in Netlogo (v6.1.1_two strategies)
+# changed VTMIN and VTMAX to activity range Tb limits
 
 #29-1-16
 # created sim count (sc) and function to replace results with most recent results of sim run. use to have access to all previous sim runs. Used for getting mean results from multiple sims.
@@ -91,13 +101,33 @@
  # NL reserve level updated in NL setup procedure (:634)
  # X_food updates with NL "[handle-food]"" procedure  (:695)
 
+# ---------------------------------------------------------------------------
+# ------------------- initial Mac OS and R config ---------------------------
+# ---------------------------------------------------------------------------
+
+#if using Mac OSX Mountain Lion + and not already in JQR, download and open JGR 
+# after downloading, load JGR
+Sys.setenv(NOAWT=1)
+library(JGR)
+Sys.unsetenv("NOAWT")
+JGR()
+
+# JGR onwards
+# if already loaded, uninstall RNetlogo and rJava
+p<-c("rJava", "RNetlogo")
+remove.packages(p)
+
+# install Netlogo and rJava from source if haven't already
+install.packages("/Users/malishev/Documents/Melbourne Uni/Programs/R code/RNetlogo/RNetLogo_1.0-2.tar.gz", repos = NULL, type="source")
+install.packages("/Users/malishev/Documents/Melbourne Uni/Programs/R code/rJava/rJava_0.9-8.tar.gz", repos = NULL, type="source")
+
+# ------------------- for PC and working Mac OSX ---------------------------
+# ------------------- model setup ---------------------------
 # install.packages(NicheMapR)
-# library(NicheMapR) # ultimately you'll install the package, but for now just source them directly
+# library(NicheMapR) 
 setwd("/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM")
 source('DEB_movecost.R')
 source('onelump_varenv.R')
-setwd("/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM")
-
 
 # read in microclimate data
 tzone<-paste("Etc/GMT-",10,sep="")
@@ -151,27 +181,37 @@ VTMAX<- 35 # 51 #from max(results$Tb)
 # ***************************************** start NETLOGO SIMULATION  ******************************************
 
 # ****************************************** open NETLOGO *****************************************
-# install.packages(c('RNetLogo','adehabitatHR','sp'))
+
 library(RNetLogo); library(adehabitatHR); library(sp)
 library(rJava) # run rJava?
 
 nl.path<-"/Users/malishev/Documents/Melbourne Uni/Programs/NetLogo 5.3.1/"
 #nl.path<-"/Users/malishev/Documents/Melbourne Uni/Programs/NetLogo 5.3.1/app" # for running in El Capitan
+#NLStart(nl.path, gui=F, nl.obj=NULL, is3d=FALSE)
 NLStart(nl.path)
-model.path<-"/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Sleepy IBM_v.6.1.nlogo"
+model.path<-"/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Sleepy IBM_v.6.1.1_two strategies.nlogo"
 NLLoadModel(model.path)
+
 
 # ****************************************** setup NETLOGO MODEL **********************************
 
 # 1. update animal and env traits
 month<-"sep"
 mass<-800             # Weight in grams
-NL_shade<-1000          # Shade patches
-NL_food<-100          # Food patches (*10)
-NL_days<-30           # No. of days simulated
+NL_shade<-100000          # Shade patches
+NL_food<-10000          # Food patches (*10)
+NL_days<-5         # No. of days simulated
 NL_gutthresh<-0.75
-
-# update initial conditions for DEB model 
+strategy<-function(strategy){ # set movement strategy 
+	if (strategy == "O"){
+		strategy<-"Optimising"
+		}else{
+		strategy<-"Satisficing"
+		}
+	}
+	
+# 2. update initial conditions for DEB model 
+debout<-DEB(E_pres=E_pres_init, V_pres=V_pres_init, E_H_pres=E_H_init, acthr = acthr, breeding = 1, Es_pres = Es_pres_init, E_sm = E_sm)
 E_m<-32*7.997/0.886/0.065 #p_M*z/kap/v
 E_pres_init<-E_m 
 V_pres_init<-(7.9967^3)*0.85
@@ -180,51 +220,30 @@ acthr<-1
 Tb_init<-20
 E_sm<-1116 # J cm^3 of gut #KearSimpRaubKooij FuncEcol 2013 (Cunningham's skink)
 
-# direct movement cost (cost of locomotion) initial par values
-step<-2/1440 # step size (2 mins). For hourly: 1/24
-p_M<-32 * step #J
+# 3. calc direct movement cost
+# ------- New loco cost 16-10-16 -------
+#V_pres = 3.9752^3 #structure 
+V_pres<-debout[2]
+step<-1/24 #hourly
+#step<-2/1440 #2min
 
-T_REF = 20
-TA = 8085
-TAL = 18721
-TAH = 9e+4
-TL = 288 
-TH = 315
-Tb=seq(0,45)
-Tcorr = exp(TA * (1/(273 + T_REF) - 1/(273 + Tb)))/(1 + exp(TAL * (1/(273 + Tb) - 1/TL)) + exp(TAH * (1/TH - 1/(273 + Tb))))
-plot(Tb,Tcorr)
+p_M<-32*step #J/h
+p_M<-p_M*V_pres # loco cost * structure
+names(p_M)<-NULL # remove V_pres name attribute from p_M
 
-# correct [p_M] from 20 to 35 degrees
-Tb=35
-Tcorr = exp(TA * (1/(273 + T_REF) - 1/(273 + Tb)))/(1 + exp(TAL * (1/(273 + Tb) - 1/TL)) + exp(TAH * (1/TH - 1/(273 + Tb))))
-#p_M=p_M*Tcorr # now corrected to 25 deg C
+# movement cost for time period
+VO2<-0.45 # O2/g/h JohnAdler etal 1986
 
-L_max<-7.997 #cm
-V_max<-L_max^3 #cm3
-p_M<-p_M*V_max #J/d
-p_M.h<-p_M/24 #J/h
-mrate.watts<-p_M/(3600*24) #J/s
-mrate.O2.h<-mrate.watts/20.1*3600 # convert to ml O2, make it per hour
-mrate.O2.g.h<-mrate.O2.h/mass # ml 02 per h by total wetmass
-VO2max<-0.722 #ml O2/g/h
+# multiple p_M by structure = movement cost (diff between p_M with loco cost and structure for movement period)
+# p_M with loco cost 
+loco<-VO2*mass*20.1 # convert ml O2 to J = J/h 
+loco<-loco+p_M # add to p_M = J/h
+loco<-loco/30 ; loco #J/2min
 
-T_REF = 35
-Tb=20
-Tcorr = exp(TA * (1/(273 + T_REF) - 1/(273 + Tb)))/(1 + exp(TAL * (1/(273 + Tb) - 1/TL)) + exp(TAH * (1/TH - 1/(273 + Tb))))
-
-VO2max<-VO2max*Tcorr
-J.Loc.h<-VO2max*mass*20.1-p_M.h #J/h
-J.Loc.2min<-J.Loc.h/30 # J/2min activity, extra activity cost to add when moving
-
-#28-7-16
-# direct movement cost. convert o2 to grams then multiple by mass
-loco_km<-0.921/20.1*800 # J/km
-loco<-loco_km/1000 #J/m
 
 gutfull<-1
 Es_pres_init<-(E_sm*gutfull)*V_pres_init
 X_food<-3000
-debout<-DEB(E_pres=E_pres_init, V_pres=V_pres_init, E_H_pres=E_H_init, acthr = acthr, breeding = 1, Es_pres = Es_pres_init, E_sm = E_sm)
 V_pres<-debout[2]
 wetgonad<-debout[19]
 wetstorage<-debout[20]
@@ -239,18 +258,25 @@ NL_T_b_max<-VTMAX        # Max foraging T_b
 NL_ctminthresh<-ctminthresh # No. of consecutive hours below CTmin that leads to death
 NL_reserve<-E_m        # Initial reserve density
 NL_max_reserve<-E_m    # Maximum reserve level
-NL_maint<-0               # Maintenance cost
-NL_move<-J.Loc.2min       # Movement cost
+NL_maint<-round(p_M, 3)               # Maintenance cost
+NL_move<-round(loco, 3) 		      # Movement cost
 NL_zen<-Zenfun(1*60*60)     # Zenith angle
+#NL_strategy<-strategy("O")  # movement strategy: "O" or "S"
+#NLCommand(paste("set strategy",  "Satisficing\" \"")) # works
+#NLCommand("set strategy", paste( "Satisficing\" \"")) # works
 
-sc<-25 # sim count for automating writing of each sim results to file (set before NL loop)
+
+sc<-1 # sim count for automating writing of each sim results to file (set before NL loop)
 for (i in 1:sc){ # start sc sim loop
 	
 NLCommand("set Shade-patches",NL_shade,"set Food-patches",NL_food,"set No.-of-days",NL_days,"set T_b precision",
 NL_T_b, "2","set T_opt_lower precision", NL_T_b_min, "2","set T_opt_upper precision", NL_T_b_max, "2",
 "setup", "set reserve-level", NL_reserve, "set Maximum-reserve", NL_max_reserve, "set Maintenance-cost", NL_maint,
-"set Movement-cost", NL_move, "set zenith", NL_zen, "set ctminthresh", NL_ctminthresh, 
-"set gutthresh", NL_gutthresh, 'set gutfull', gutfull, 'set V_pres precision', V_pres, "5", 'set wetstorage precision', wetstorage, "5", 'set wetfood precision', wetfood, "5", 'set wetgonad precision', wetgonad, "5")
+"set Movement-cost precision", NL_move, "5", "set zenith", NL_zen, "set ctminthresh", NL_ctminthresh, 
+"set gutthresh", NL_gutthresh, 'set gutfull', gutfull, 'set V_pres precision', V_pres, "5", 'set wetstorage precision', wetstorage, "5", 
+'set wetfood precision', wetfood, "5", 'set wetgonad precision', wetgonad, "5")
+
+NLCommand("inspect turtle 0")
 
 NL_ticks<-NL_days / (2 / 60 / 24) # No. of NL ticks (measurement of days)
 NL_T_opt_l<-NLReport("[T_opt_lower] of turtle 0")
@@ -318,35 +344,42 @@ if (ctminhours == NL_ctminthresh) {NLCommand("ask turtle 0 [stop]")}
 if(stepcount==1) { # run DEB loop every time step (2 mins)
 stepcount<-0
 
+# report activity state
 actstate<-NLReport("[activity-state] of turtle 0")
-actfeed<-NLGetAgentSet("in-food?","turtles", as.data.frame=T); actfeed<-as.numeric(actfeed) # Reports true if turtle is in food. 
-
+ # Reports true if turtle is in food 
+actfeed<-NLGetAgentSet("in-food?","turtles", as.data.frame=T); actfeed<-as.numeric(actfeed)
+ 
 n<-1 # time steps
 step<-2/1440 # step size (2 mins). For hourly: 1/24
-if (actstate == "S") {NLCommand("set Movement-cost", NL_move)} # update direct movement cost
-if(Tbs$Tc>=VTMIN & Tbs$Tc<=VTMAX & Zen!=90 & gutfull<=NL_gutthresh){ # if within activity range, it's daytime, and gut below threshold 
-  acthr=1
+# update direct movement cost
+if(actstate == "S"){
+	NLCommand("set Movement-cost", NL_move)
+	}else{
+		NLCommand("set Movement-cost", 1e-09)
+		} 
+# if within activity range, it's daytime, and gut below threshold 
+if(Tbs$Tc>=VTMIN & Tbs$Tc<=VTMAX & Zen!=90 & gutfull<=NL_gutthresh){ 
+  acthr=1 # activity state = 1 
 if(actfeed==1){ # if in food patch
-X_food<-NLReport("[energy-gain] of turtle 0") # report joules intake
-}
-}else{
-X_food = 0
-acthr=0
-}
+	X_food<-NLReport("[energy-gain] of turtle 0") # report joules intake
+	}
+	}else{
+		X_food = 0 
+		acthr=0
+		}
 
-
-
+# calculate DEB output 
 if(debcall==0){
-# initialise
-debout<-matrix(data = 0, nrow = n, ncol = 26)
-deb.names<-c("E_pres","V_pres","E_H_pres","q_pres","hs_pres","surviv_pres","Es_pres","cumrepro","cumbatch","p_B_past","O2FLUX","CO2FLUX","MLO2","GH2OMET","DEBQMET","DRYFOOD","FAECES","NWASTE","wetgonad","wetstorage","wetfood","wetmass","gutfreemass","gutfull","fecundity","clutches")
-colnames(debout)<-deb.names
-# initial conditions
-debout<-DEB(E_pres=E_pres_init, V_pres=V_pres_init, E_H_pres=E_H_init, acthr = acthr, Tb = Tb_init, breeding = 1, Es_pres = Es_pres_init, E_sm = E_sm, step = step)
-debcall<-1
-}else{
-debout<-DEB(X=X_food,acthr = acthr, Tb = Tbs$Tc, breeding = 1, step = step,E_sm = E_sm, E_pres=debout[1],V_pres=debout[2],E_H_pres=debout[3],q_pres=debout[4],hs_pres=debout[5],surviv_pres=debout[6],Es_pres=debout[7],cumrepro=debout[8],cumbatch=debout[9],p_B_past=debout[10])
-}
+	# initialise DEB
+	debout<-matrix(data = 0, nrow = n, ncol = 26)
+	deb.names<-c("E_pres","V_pres","E_H_pres","q_pres","hs_pres","surviv_pres","Es_pres","cumrepro","cumbatch","p_B_past","O2FLUX","CO2FLUX","MLO2","GH2OMET","DEBQMET","DRYFOOD","FAECES","NWASTE","wetgonad","wetstorage","wetfood","wetmass","gutfreemass","gutfull","fecundity","clutches")
+	colnames(debout)<-deb.names
+	# initial conditions
+	debout<-DEB(E_pres=E_pres_init, V_pres=V_pres_init, E_H_pres=E_H_init, acthr = acthr, Tb = Tb_init, breeding = 1, Es_pres = Es_pres_init, E_sm = E_sm, step = step)
+	debcall<-1
+	}else{
+		debout<-DEB(X=X_food,acthr = acthr, Tb = Tbs$Tc, breeding = 1, step = step,E_sm = E_sm, E_pres=debout[1],V_pres=debout[2],E_H_pres=debout[3],q_pres=debout[4],hs_pres=debout[5],surviv_pres=debout[6],Es_pres=debout[7],cumrepro=debout[8],cumbatch=debout[9],p_B_past=debout[10])
+		}
 mass<-debout[22]
 gutfull<-debout[24]
 NL_reserve<-debout[1]
@@ -366,34 +399,33 @@ NLCommand("set wetfood precision", wetfood, "5")
 NLDoCommand("plot xcor ycor") 
  
 
-} # end DEB loop
+} #--- end DEB loop
 
-NLCommand("set reserve-level", NL_reserve) # Updating reserve
-NLCommand("set gutfull", debout[24])
+NLCommand("set reserve-level", NL_reserve) # update reserve
+NLCommand("set gutfull", debout[24])# update gut level
 
 # ******************** end DEB SIMULATION ******************
 
 # generate results, with V_pres, wetgonad, wetstorage, and wetfood from debout
 if(i==1){
-results<-cbind(tick,Tb,rate,shade,V_pres,wetgonad,wetstorage,wetfood,NL_reserve) 
-}else{
-results<-rbind(results,c(tick,Tb,rate,shade,V_pres,wetgonad,wetstorage,wetfood,NL_reserve))
-}
+	results<-cbind(tick,Tb,rate,shade,V_pres,wetgonad,wetstorage,wetfood,NL_reserve) 
+	}else{
+		results<-rbind(results,c(tick,Tb,rate,shade,V_pres,wetgonad,wetstorage,wetfood,NL_reserve))
+		}
 results<-as.data.frame(results)
 
 # generate data frames for homerange polygon
 if (tick == NL_ticks - 1){
-  X<-NLReport("[X] of turtle 0"); head(X)
-Y<-NLReport("[Y] of turtle 0"); head(Y)
-  turtles<-data.frame(X,Y)
-  who1<-rep(who,NL_ticks); who # who1<-rep(who,NL_ticks - 1); who 
-  turtledays<-rep(1:NL_days,length.out=NL_ticks,each=720) 
-  turtle<-data.frame(ID = who1,days=turtledays)
-  turtles<-cbind(turtles,turtle)
-  }
+	X<-NLReport("[X] of turtle 0"); head(X)
+	Y<-NLReport("[Y] of turtle 0"); head(Y)
+	turtles<-data.frame(X,Y)
+	who1<-rep(who,NL_ticks); who # who1<-rep(who,NL_ticks - 1); who 
+	turtledays<-rep(1:NL_days,length.out=NL_ticks,each=720) 
+	turtle<-data.frame(ID = who1,days=turtledays)
+	turtles<-cbind(turtles,turtle)
+	}
 
-
-} # end NL loop ###########
+} # *************** end NL loop **************************
 
 # get hr data
 spdf<-SpatialPointsDataFrame(turtles[1:2], turtles[3]) # creates a spatial points data frame (adehabitatHR package)
@@ -401,56 +433,49 @@ homerange<-mcp(spdf,percent=100)
 
 # writing new results
 if (exists("results")){  #if results exist
-sc<-sc-1 
- nam <- paste("results", sc, sep = "") # generate new name with added sc count
- rass<-assign(nam,results) #assign new name to results. call 'results1, results2 ... resultsN'
- namh <- paste("turtles", sc, sep = "")  #generate new name with added sc count
- rassh<-assign(namh,turtles) #assign new name to results. call 'results1, results2 ... resultsN'
-#nams <- paste("spdf", sc, sep = "") 
-#rasss<-assign(nams,spdf) 
-#namhr <- paste("homerange", sc, sep = "")  
-#rasshr<-assign(namhr,homerange) 
-# write each result for each sim to file dir getwd()
-for (i in rass){
-	write.table(results,file=paste("C:/NicheMapR_Working/projects/sleepy_ibm_transient/",nam,".R",sep=""))
+	sc<-sc-1 
+	nam <- paste("results", sc, sep = "") # generate new name with added sc count
+	rass<-assign(nam,results) #assign new name to results. call 'results1, results2 ... resultsN'
+	namh <- paste("turtles", sc, sep = "")  #generate new name with added sc count
+	rassh<-assign(namh,turtles) #assign new name to results. call 'results1, results2 ... resultsN'
+	#nams <- paste("spdf", sc, sep = "") 
+	#rasss<-assign(nams,spdf) 
+	#namhr <- paste("homerange", sc, sep = "")  
+	#rasshr<-assign(namhr,homerange) 
+	# write each result for each sim to file dir getwd()
+	for (i in rass){
+		#CAMEL comp dir
+		#file=paste("C:/NicheMapR_Working/projects/sleepy_ibm_transient/",nam,".R",sep="")
+		write.table(results,file=paste("/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Results/",nam,".R",sep=""))
+		}
+	for (i in rassh){
+		write.table(turtles,file=paste("/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Results/",namh,".R",sep=""))
+		}
+		#output NL plots
+		month<-"sep"
+		#temp plot 
+		tfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food*10,"_",sc,"_temp",sep="")
+		NLCommand(paste("export-plot \"Body temperature (T_b)\" \"/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Results/",tfh,".csv\"",sep=""))
+		#activity budget
+		afh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food*10,"_",sc,"_act","",sep="");afh
+		NLCommand(paste("export-plot \"Global time budget\" \"/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Results/",afh,".csv\"",sep=""))
+		#text output
+		xfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food*10,"_",sc,"_txt",sep="");xfh
+		NLCommand(paste("export-output \"/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Results/",xfh,".csv\"",sep=""))
+		#gut level
+		gfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food*10,"_",sc,"_gut","",sep="");gfh
+		NLCommand(paste("export-plot \"Gutfull\" \"/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Results/",gfh,".csv\"",sep=""))
+		#wet mass 
+		mfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food*10,"_",sc,"_wetmass","",sep="");mfh
+		NLCommand(paste("export-plot \"Total wetmass plot\" \"/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Results/",mfh,".csv\"",sep=""))
+		#for (i in rasss){
+		#	write.table(spdf,file=paste("/Users/matthewmalishev/Documents/Manuscripts/Malishev and Kearney/Resubmission/Sims/Home ranges/",nams,".R",sep=""))  
+		#	}
+		#for (i in rasshr){
+		#	write.table(homerange,file=paste("/Users/matthewmalishev/Documents/Manuscripts/Malishev and Kearney/Resubmission/Sims/Home ranges/",namhr,".R",sep=""))  
+		#	}
 	}
-for (i in rassh){
-	write.table(turtles,file=paste("C:/NicheMapR_Working/projects/sleepy_ibm_transient/",namh,".R",sep=""))
-	}
-#output NL plots
-month<-"sep"
-#temp plot 
-tfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food*10,"_",sc,"_temp",sep="")
-NLCommand(paste("export-plot \"Body temperature (T_b)\" \"C:/NicheMapR_Working/projects/sleepy_ibm_transient/",tfh,".csv\"",sep=""))
-#activity budget
-afh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food*10,"_",sc,"_act","",sep="");afh
-NLCommand(paste("export-plot \"Global time budget\" \"C:/NicheMapR_Working/projects/sleepy_ibm_transient/",afh,".csv\"",sep=""))
- #text output
-xfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food*10,"_",sc,"_txt",sep="");xfh
-NLCommand(paste("export-output \"C:/NicheMapR_Working/projects/sleepy_ibm_transient/",xfh,".csv\"",sep=""))
- #gut level
-gfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food*10,"_",sc,"_gut","",sep="");gfh
-NLCommand(paste("export-plot \"Gutfull\" \"C:/NicheMapR_Working/projects/sleepy_ibm_transient",gfh,".csv\"",sep=""))
-#wet mass 
-mfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food*10,"_",sc,"_wetmass","",sep="");mfh
-NLCommand(paste("export-plot \"Total wetmass plot\" \"C:/NicheMapR_Working/projects/sleepy_ibm_transient",mfh,".csv\"",sep=""))
-#for (i in rasss){
-#	write.table(spdf,file=paste("/Users/matthewmalishev/Documents/Manuscripts/Malishev and Kearney/Resubmission/Sims/Home ranges/",nams,".R",sep=""))  
-#	}
-#for (i in rasshr){
-#	write.table(homerange,file=paste("/Users/matthewmalishev/Documents/Manuscripts/Malishev and Kearney/Resubmission/Sims/Home ranges/",namhr,".R",sep=""))  
-#	}
-}
-
-
-} # end sc sim loop  ########
-
-
-
-
-
-
-
+} # ********************** end sc sim loop **********************
 
 
 
@@ -478,7 +503,7 @@ with(results7,points(NL_reserve,type='h',col='red'))
 plot(results7$NL_reserve,type='l',col='orange')
 
 # compare Tb for 75% and 100% gutfull
-plot(results7$Tb,col='black',las=1,type='l',
+plot(results$Tb,col='black',las=1,type='l',
 xaxt='n', 
 xlab="Days",
 ylab='Tb',
