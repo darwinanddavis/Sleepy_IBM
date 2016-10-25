@@ -8,11 +8,11 @@
 ;*******    Space and time specifics of model    *********
 ;*********************************************************
 
-; Spatial scale: 50 * 50 m
+; Spatial scale: 1500 * 1500 m
 ; 1 patch = 2 m
 ; 1 tick = 2 min
 ; 1 day = 720 ticks
-; i tick = 2 bites possible for small food; 5 bites possible for large food
+; i tick = 2 bites possible for small food; 4 bites possible for large food
 
 ;*********************************************************
 ;*********************   Interface    ********************
@@ -64,6 +64,7 @@ globals
   tempY
   tempXY
   gutfull            ; Reports gut level of DEB model
+  movelist
   ]
 
 turtles-own
@@ -170,6 +171,7 @@ to setup
       set patch-type "Shade"
       ]
 
+set movelist (list 1 2)
 ;  ask one-of patches with [patch-type = "Shade"]
 ;  [sprout 1]
 crt 1
@@ -192,7 +194,7 @@ crt 1
     set wetstorage_ wetstorage
     set wetfood_ wetfood
     set activity-state "S"
-  ;  set strategy "Optimising"
+    ;set strategy Strategy
     set vision-range min-vision
     if [patch-type] of patch-here = "Shade"
     [set in-shade? TRUE]
@@ -239,7 +241,7 @@ to go
   ask turtle 0
   [
     report-patch-type
-;    set reserve-level reserve-level - Maintenance-cost
+ ;   set reserve-level reserve-level - Maintenance-cost
     ask turtles with [reserve-level > Minimum-reserve]
     [set vision-range min-vision]
     update-T_b
@@ -252,8 +254,10 @@ to go
     set X lput xcor X ; populate X list with turtle's X coords to generate home range
     set Y lput ycor Y ; populate Y list with turtle's Y coords to generate home range
   ]
-  ask turtles with [reserve-level <= 0]
-  [report-results]
+  if any? turtles with [reserve-level <= 0]
+  [ask turtle 0 [report-results]
+    stop
+    ]
   ask patches with [patch-type = "Food"]
     [update-food-levels]
   ;update-sun
@@ -277,6 +281,94 @@ end
 ;*****************************************************************************************************************************
 
 to make-decision
+
+;-------------------------------------------------------------------------------------
+;-------------------------------------Optimising-------------------------------------
+;-------------------------------------------------------------------------------------
+  ifelse (strategy = "Optimising")
+  [; start optimising loop
+    ifelse (T_b > T_opt_upper) or (T_b < T_opt_lower)
+  [
+    ask turtle 0
+    [;set label "Resting"
+      set activity-state "R"
+;      ifelse gutfull >= gutthresh and T_b < T_opt_upper and T_b > T_opt_lower
+;      [;set label "Full gut"
+;        stop ]
+;      [
+        if [patch-type] of patch-here != "Shade"
+      [shade-search]
+;     ] ;close else loop for ifelse gutthresh and T_b conditional above
+      if ([patch-type] of patch-here = "Shade") and (T_b < T_b_basking_)
+      [set in-shade? TRUE]
+      ]
+    if (activity-state = "R") and (T_b >= T_b_basking_) and (T_b < T_opt_upper) ; Basking behaviour
+    [set in-shade? FALSE
+ ;      set transcount transcount + 1 ; Outcomment to include basking behaviour as activity state
+ ;      plotxy xcor ycor
+    ]
+ set restcount restcount + 1
+    ]
+     [; else optimising loop
+        if (activity-state = "R")
+    [
+        set restcount restcount + 1
+       ; set label "Resting"
+      if ((T_b <= T_opt_upper) and (T_b >= T_opt_lower)); and reserve-level < search-energy
+      [set transcount transcount + 1
+        plotxy xcor ycor
+        set activity-state "S"]
+     ; [set activity-state "R"]
+    ]
+
+                               ; 28-11-14: Only works with maint. or movement costs, otherwise reserve level = Max. reserve and turtle chooses to rest
+    if (activity-state = "F"); Use this procedure to eliminate turtle returning to shade patch after every feeding bout and to eliminate min-energy parameter. Using min-energy will cause problems in model with soil moisture profile updating food growth.
+    [                          ; Turning empty food patches into Sun patches elimates the need for min-energy.
+      ifelse (gutfull < gutthresh) ;and ([patch-type] of patch-here = "Food") ; if gut is not full, keep feeding
+      [
+      ask turtle 0
+      [handle-food
+        ;set label "Feeding"
+        set has-been-feeding? TRUE]
+      if [patch-type] of patch-here != "Food" ; if patch isn't food, search for food
+      [set activity-state "S"
+        set transcount transcount + 1
+        plotxy xcor ycor
+        set energy-gain 0]
+      if reserve-level >= Maximum-reserve ; turtle will fight between feeding and resting if DEB model not activated i.e. reserve incurs no cost.
+      [set transcount transcount + 1
+        plotxy xcor ycor
+;        ifelse (strategy = "Optimising")
+;        [set activity-state "S"]
+        set activity-state "R"
+        stop]
+      ]
+      [;set label "Gut is full" ;
+        socialise] ; otherwise, turtle moves during active hours of the day
+    ]
+
+    if (activity-state = "S")
+    [
+      ask turtle 0
+      [search
+       ; set label "Searching for food"
+       ]
+      set searchcount searchcount + 1
+      if ([patch-type] of patch-here = "Food") and (gutfull < gutthresh) ;and ([food-level] of patch-here > min-energy)
+      [set transcount transcount + 1
+        plotxy xcor ycor
+        set activity-state "F"]
+      ]
+  ]
+  ]; end optimising loop
+
+
+
+;-------------------------------------------------------------------------------------
+;-------------------------------------Satisficing-------------------------------------
+;-------------------------------------------------------------------------------------
+
+  [; else satisfice, i.e. move only when gutfull is below the gut threshold
   ifelse (T_b > T_opt_upper) or (T_b < T_opt_lower) or (gutfull >= gutthresh); 'gutfull' is DEB.R input
   [
     ask turtle 0
@@ -343,12 +435,13 @@ to make-decision
        ; set label "Searching for food"
        ]
       set searchcount searchcount + 1
-      if ([patch-type] of patch-here = "Food") ;and ([food-level] of patch-here > min-energy)
+      if ([patch-type] of patch-here = "Food")  ;and ([food-level] of patch-here > min-energy)
       [set transcount transcount + 1
         plotxy xcor ycor
         set activity-state "F"]
       ]
     ]
+  ]; end satisficing loop
 
 end
 
@@ -357,7 +450,8 @@ end
 ;**********************************************************************************************************************
 
 to search
-  set reserve-level reserve-level - Movement-cost ; set to small number to avoid turtle exiting green food patches when feeding
+  set reserve-level reserve-level - Movement-cost ; add miniscule movement cost to avoid turtle exiting green food patches for one time step when feeding
+  set movelist lput Movement-cost movelist
   bounce
   let local-food-patches patches with [(distance myself < [vision-range] of turtle 0) and (patch-type = "Food")]
   ifelse any? local-food-patches
@@ -403,7 +497,9 @@ end
 ;**************************************************************************************************************************
 
 to shade-search
-  set reserve-level reserve-level - Movement-cost ; set to small number to avoid turtle exiting green food patches when feeding
+  set activity-state "S"
+  set reserve-level reserve-level - Movement-cost ; add miniscule movement cost to avoid turtle exiting green food patches for one time step when feeding
+  set movelist lput Movement-cost movelist
   let local-shade-patches patches with [(distance myself < [vision-range] of turtle 0) and (patch-type = "Shade")]
   ifelse any? local-shade-patches
   [let my-shade-patch local-shade-patches with-min [distance myself] with-max [shade-level]
@@ -438,13 +534,27 @@ to starving
  set has-been-starving? TRUE]
 end
 
+;**************************************************************************************************************************
+;*********************************************       TO SOCIALISE       ***************************************************
+;**************************************************************************************************************************
+
+to socialise
+  set reserve-level reserve-level - Movement-cost ; add miniscule movement cost to avoid turtle exiting green food patches for one time step when feeding
+  set movelist lput Movement-cost movelist
+  bounce
+  lt random 180 - 90
+  fd 1
+  if gutfull < gutthresh
+  [set activity-state "S"]
+end
+
 ;*********************************************************************************************************************************
 ;***********************************************     TO UPDATE FOOD LEVELS     ***************************************************
 ;*********************************************************************************************************************************
 
 to update-food-levels
   let food-deplete food-level - Low-food-gain
-  if count turtles-here with [activity-state = "F"] > 0
+  if (count turtles-here with [activity-state = "F"] > 0) and (gutfull < gutthresh)
 ; [ifelse food-level < Large-food-initial
   [set food-level food-deplete ; yellow food
     set in-food? TRUE
@@ -706,12 +816,12 @@ end
 ; Brown, G. W. (1991) Ecological feeding analysis of south-eastern Australian Scincids  (Reptilia--Lacertilia), Aust. J. Zool. 39:9-29.
 ; Kooijman, S. A. L. M. (2010) Dynamic Energy Budget theory for metabolic organisation. Cambridge University Press.
 ; Norman, H. C., Mayberry, D. E., McKenna, D. J., Pearce, K. L. & Revell D. K. (2008) Old man saltbush in agriculture: feeding value for livestock production systems, 2nd International Salinity Forum: Salinity, water and society--global issues, local action.
-; Pamula thesis
+; Pamula Y (1997) Ecological and physiological aspects of reproduction in the viviparous skink Tiliqua rugosa, Ph.D. thesis, Flinders University.
 @#$#@#$#@
 GRAPHICS-WINDOW
-388
+386
 10
-1157
+1155
 800
 375
 375
@@ -787,9 +897,9 @@ NIL
 1
 
 MONITOR
-805
+804
 856
-940
+939
 901
 Time spent feeding
 feedcount
@@ -798,9 +908,9 @@ feedcount
 11
 
 PLOT
-1166
+1165
 762
-1646
+1645
 1011
 Total wetmass plot
 Time
@@ -819,9 +929,9 @@ PENS
 "wetgonad" 1.0 0 -5825686 true "" ""
 
 OUTPUT
-425
+424
 960
-869
+868
 1267
 13
 
@@ -831,7 +941,7 @@ INPUTBOX
 102
 632
 Movement-cost
-0
+260
 1
 0
 Number
@@ -842,7 +952,7 @@ INPUTBOX
 211
 632
 Maintenance-cost
-0
+579.555
 1
 0
 Number
@@ -943,13 +1053,13 @@ Small-food-initial
 Number
 
 PLOT
-1166
+1165
 10
-1643
+1642
 254
 Reserve level and starvation reserve over time
-NIL
-NIL
+Time
+Reserve
 0.0
 10.0
 0.0
@@ -960,16 +1070,6 @@ true
 PENS
 "Reserve level" 1.0 0 -16777216 true "" "if any? turtles\n[plot [reserve-level] of turtle 0]"
 "Starvation reserve" 1.0 0 -5298144 true ";plot Minimum-reserve\nauto-plot-off\nplotxy 0 Minimum-reserve \nplotxy 100000000 0\nauto-plot-on" ""
-
-CHOOSER
-6
-160
-98
-205
-Strategy
-Strategy
-"Optimising" "Satisficing"
-0
 
 TEXTBOX
 7
@@ -1034,9 +1134,9 @@ TEXTBOX
 1
 
 TEXTBOX
-426
+425
 932
-791
+790
 962
 Output of model results.
 12
@@ -1055,9 +1155,9 @@ Maximum-reserve
 Number
 
 PLOT
-1166
+1165
 517
-1645
+1644
 754
 Global time budget
 Time
@@ -1077,9 +1177,9 @@ PENS
 "Starving" 1.0 1 -2674135 true "" ""
 
 PLOT
-1648
+1647
 11
-2105
+2104
 254
 Spatial coordinates of transition between activity states
 Xcor
@@ -1098,9 +1198,9 @@ PENS
 "Resting" 1.0 2 -16777216 true "" "ask turtle 0 [\nif [patch-type] of patch-here = \"Shade\" \n[plotxy xcor ycor]\n]"
 
 MONITOR
-477
+476
 857
-611
+610
 902
 Number of transitions
 transcount
@@ -1120,9 +1220,9 @@ show-plots?
 -1000
 
 MONITOR
-616
+615
 806
-799
+798
 851
 Time spent searching for food
 searchcount
@@ -1131,9 +1231,9 @@ searchcount
 11
 
 MONITOR
-615
+614
 857
-799
+798
 902
 Time spent searching for shade
 shadecount
@@ -1179,19 +1279,19 @@ INPUTBOX
 273
 317
 No.-of-days
-2
+5
 1
 0
 Number
 
 PLOT
-1167
+1166
 262
-1642
+1641
 507
 Body temperature (T_b)
-NIL
-NIL
+Time
+Body temperature
 0.0
 10.0
 0.0
@@ -1201,16 +1301,16 @@ false
 "" ""
 PENS
 "default" 1.0 0 -16777216 true "set-plot-y-range 0 max-T_b + 5" "if any? turtles\n[plot [T_b] of turtle 0]"
-"T_opt_lower" 1.0 0 -2674135 true "auto-plot-off\nplotxy 0 T_opt_lower\nplotxy 1000000000 T_opt_lower\nauto-plot-on" ""
-"T_opt_upper" 1.0 0 -2674135 true "auto-plot-off\nplotxy 0 T_opt_upper\nplotxy 1000000000 T_opt_upper\nauto-plot-on" ""
+"T_opt_lower" 1.0 0 -2674135 true "auto-plot-off\nplotxy 0 [T_opt_lower] of turtle 0\nplotxy 1000000000 [T_opt_lower] of turtle 0\nauto-plot-on" ""
+"T_opt_upper" 1.0 0 -2674135 true "auto-plot-off\nplotxy 0 [T_opt_upper] of turtle 0\nplotxy 1000000000 [T_opt_upper] of turtle 0\nauto-plot-on" ""
 
 INPUTBOX
-239
+79
 389
-305
+157
 449
-Min-T_b
-3.7
+T_opt_lower
+26
 1
 0
 Number
@@ -1221,18 +1321,18 @@ INPUTBOX
 74
 449
 T_b
-6.91
+30
 1
 0
 Number
 
 INPUTBOX
-309
+160
 389
-380
+239
 449
-Max-T_b
-51
+T_opt_upper
+35
 1
 0
 Number
@@ -1258,9 +1358,9 @@ TEXTBOX
 1
 
 MONITOR
-1648
+1647
 262
-1698
+1697
 307
 T_b
 [T_b] of turtle 0
@@ -1269,9 +1369,9 @@ T_b
 11
 
 MONITOR
-475
+474
 806
-556
+555
 851
 Activity state
 [activity-state] of turtle 0
@@ -1280,9 +1380,9 @@ Activity state
 11
 
 MONITOR
-1649
+1648
 311
-1715
+1714
 356
 in-shade?
 in-shade?
@@ -1291,9 +1391,9 @@ in-shade?
 11
 
 MONITOR
-616
+615
 906
-750
+749
 951
 Time spent resting
 restcount
@@ -1302,9 +1402,9 @@ restcount
 11
 
 MONITOR
-1650
+1649
 361
-1729
+1728
 406
 Zenith angle
 zenith
@@ -1313,9 +1413,9 @@ zenith
 11
 
 MONITOR
-389
+388
 806
-455
+454
 851
 NIL
 in-food?
@@ -1324,9 +1424,9 @@ in-food?
 11
 
 MONITOR
-389
+388
 857
-472
+471
 902
 eaten patches
 count patches with [pcolor = 35]
@@ -1335,9 +1435,9 @@ count patches with [pcolor = 35]
 11
 
 MONITOR
-1528
+1527
 65
-1639
+1638
 110
 Diff in reserve level
 Maximum-reserve - [reserve-level] of turtle 0
@@ -1346,9 +1446,9 @@ Maximum-reserve - [reserve-level] of turtle 0
 11
 
 PLOT
-1731
+1730
 259
-2104
+2103
 513
 Different in reserve level over time
 NIL
@@ -1397,9 +1497,9 @@ Time spent under min-T_b
 11
 
 MONITOR
-1530
+1529
 117
-1619
+1618
 162
 Energy gain
 [energy-gain] of turtle 0
@@ -1419,9 +1519,9 @@ Gutthresh
 Number
 
 MONITOR
-1530
+1529
 165
-1636
+1635
 210
 Gutfull
 [gutfull] of turtle 0
@@ -1430,31 +1530,31 @@ Gutfull
 11
 
 INPUTBOX
-1652
+1651
 765
-1738
+1737
 825
 V_pres
-434.71797
+434.70211
+1
+0
+Number
+
+INPUTBOX
+1652
+828
+1737
+888
+wetstorage
+263.05256
 1
 0
 Number
 
 INPUTBOX
 1653
-828
-1738
-888
-wetstorage
-263.06216
-1
-0
-Number
-
-INPUTBOX
-1654
 957
-1737
+1736
 1017
 wetgonad
 0
@@ -1463,27 +1563,27 @@ wetgonad
 Number
 
 INPUTBOX
-1653
+1652
 893
-1738
+1737
 953
 wetfood
-20.41576
+26.80706
 1
 0
 Number
 
 PLOT
-1657
+1656
 516
-2018
+2017
 762
 Gutfull
 Time
 Gut level
 0.0
 10.0
-1.0
+0.0
 1.0
 true
 true
@@ -1492,35 +1592,96 @@ PENS
 "gutfull" 1.0 0 -16777216 true "" "plot [gutfull] of turtle 0"
 
 INPUTBOX
-158
+244
 389
-236
+309
 449
-T_opt_upper
-35
+Min-T_b
+3.7
 1
 0
 Number
 
 INPUTBOX
-77
+314
 389
-155
+379
 449
-T_opt_lower
-26
+Max-T_b
+51
 1
 0
 Number
 
+MONITOR
+1061
+804
+1151
+849
+NIL
+searchcount
+17
+1
+11
+
+CHOOSER
+6
+160
+98
+205
+Strategy
+Strategy
+"Optimising" "Satisficing"
+0
+
+PLOT
+1741
+768
+2107
+1018
+Movement and maintenance costs
+Time
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"Movement cost" 1.0 0 -11221820 true "" ";plot [Movement-cost] of turtle 0\nplot sum movelist"
+"Maintenance cost" 1.0 0 -2064490 true "" "plot [Maintenance-cost] of turtle 0"
+
 @#$#@#$#@
-> ##Version 6.1 (8-4-16)
+> ##Version 6.1.1 (30-6-16)
 
-> 6.1 (22-10-16)
-> Changed all instances of Min-T_b and Max-T_b to T_opt_lower and T_opt_upper.
 
-> 6.1 (19-10-16)
+> 6.1.1 (25-10-16)
+> Added movement cost plot
+
+> 6.1.1 (24-10-16)
+> Added movement cost to Socialise state (Optimising strategy). Movement cost now added to all movement phases (Searching, Socialising, Shade searching).
+
+> 6.1.1 (19-10-16)
 > Added miniscule movement cost (Movement-cost) to avoid turtle exiting green food patches for one time step when feeding.
+
+> 6.1.1. (29-6-16)
+
+> Added movement cost variabe to 'to search' and 'to shade-search' procedures (set reserve-level reserve-level - Movement-cost)
+
+> 6.1.1. (16-6-16)
+
+> Changed all instances of Min-T_b and Max-T_b to T_opt_lower and T_opt_upper
+
+> Two movement strategies: 1) move only when hungry or 2) move during all active hours, then feed when hungry. Gut threshold remains at <75% for both strategies.
+>> Added 'socialise' procedure to make turtle move when in activity range and when gutfull > gutthresh, i.e. not hungry. Turtle searches for food if gutfull < gutthresh, i.e. hungry
+
+>> Added (gutfull < gutthresh statement) to update-food-levels procedure so turtle doesn't deplete food when passing over patch
+
+>> Added (gutfull < gutthresh) to activity-state = "S" procedure under Optimising strategy
+
+> ##Version 6.1 (30-5-16)
 
 > 6.1 (8-4-16)
 > Updated spatial plot area to 750 x 750 patches (1500 x 1500 m)
