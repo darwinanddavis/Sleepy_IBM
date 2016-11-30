@@ -59,13 +59,13 @@ globals
   starvecount        ; Counter for time spent in starvation state.
   shadecount         ; Counter for time spent searching for shade following a feeding bout.
   transcount         ; Counter for frequency of transitions between any of the three activity states--searching, feeding, resting.
-  socialcount        ; Counter for time spent in socialising state (Optimising only)
   zenith             ; Zenith angle of sun (update-sun procedure).
   tempX
   tempY
   tempXY
   gutfull            ; Reports gut level of DEB model
-  movelist
+  movelist           ; List of cumulative movement costs
+  fh_                 ; String for working dir to export results
   ]
 
 turtles-own
@@ -84,7 +84,7 @@ turtles-own
   min-T_b_           ; Lower critical body temperature (min-T_b) of individual (Celcius)
   max-T_b_           ; Upper critical body temperature (max-T_b) of individual (Celcius)
   vision-range       ; Vision (no. of patches) range of individual.
-  ;strategy          ; *> Interface <* Defines the foraging strategy of individual. This is set in the Interface and is thus masked in the code.
+  ;strategy_         ; *> Interface <* Defines the foraging strategy of individual. This is set in the Interface and is thus masked in the code.
   has-been-starving? ; Results reporter only variable for reporting stavation time only if individual has starved
   has-been-feeding?  ; Results reporter only variable for reporting feeding time only if individual has been feeding
   X                  ; List of x coords for homerange
@@ -172,7 +172,7 @@ to setup
       set patch-type "Shade"
       ]
 
-set movelist (list 1 2)
+set movelist (list 0)
 ;  ask one-of patches with [patch-type = "Shade"]
 ;  [sprout 1]
 crt 1
@@ -195,7 +195,7 @@ crt 1
     set wetstorage_ wetstorage
     set wetfood_ wetfood
     set activity-state "S"
-    ;set strategy Strategy
+    ;set strategy_ Strategy
     set vision-range min-vision
     if [patch-type] of patch-here = "Shade"
     [set in-shade? TRUE]
@@ -209,6 +209,7 @@ crt 1
     set Y (list ycor)
     ]
 setup-spatial-plot
+set fh_ fh
 ;create-sun
 reset-ticks
 ;r:clear                                  ; extensions [r] command. Outcomment if calling R from Netlogo.
@@ -346,7 +347,7 @@ to make-decision
       ]
       [;set label "Gut is full" ; otherwise, turtle moves during active hours of the day
         socialise
-        set activity-state "E"
+        set searchcount searchcount + 1
         plotxy xcor ycor
         ]
     ]
@@ -545,7 +546,6 @@ end
 to socialise
   set reserve-level reserve-level - Movement-cost ; add miniscule movement cost to avoid turtle exiting green food patches for one time step when feeding
   set movelist lput Movement-cost movelist
-  set socialcount socialcount + 1
   bounce
   lt random 180 - 90
   fd 1
@@ -943,7 +943,7 @@ OUTPUT
 INPUTBOX
 6
 572
-102
+111
 632
 Movement-cost
 1.0E-9
@@ -952,12 +952,12 @@ Movement-cost
 Number
 
 INPUTBOX
-106
-572
-211
-632
+118
+571
+223
+631
 Maintenance-cost
-579.555
+43.612
 1
 0
 Number
@@ -1154,7 +1154,7 @@ INPUTBOX
 167
 912
 Maximum-reserve
-4443.54922729641
+7222.30069902594
 1
 0
 Number
@@ -1173,14 +1173,13 @@ Frequency of activity states
 10.0
 true
 true
-"" "let total 0\n\nset-current-plot-pen \"Starving\"\nplot-pen-up plotxy ticks total\nset total starvecount + total \nplot-pen-down plotxy ticks total\n\nset-current-plot-pen \"Socialising\"\nplot-pen-up plotxy ticks total\nset total socialcount + total \nplot-pen-down plotxy ticks total\n\nset-current-plot-pen \"Resting\"\nplot-pen-up plotxy ticks total\nset total restcount + total \nplot-pen-down plotxy ticks total\n\n\nset-current-plot-pen \"Transcount\"\nplot-pen-up plotxy ticks total\nset total transcount + total\nplot-pen-down plotxy ticks total\n\nset-current-plot-pen \"Searching\"\nplot-pen-up plotxy ticks total\nset total searchcount + total\nplot-pen-down plotxy ticks total\n\nset-current-plot-pen \"Feeding\"\nplot-pen-up plotxy ticks total\nset total feedcount + total\nplot-pen-down plotxy ticks total\n\n;let t2 time-budget-range\n;if ticks > t2         \n;[set-plot-x-range (ticks - t2) ticks]"
+"" "let total 0\n\nset-current-plot-pen \"Starving\"\nplot-pen-up plotxy ticks total\nset total starvecount + total \nplot-pen-down plotxy ticks total\n\nset-current-plot-pen \"Resting\"\nplot-pen-up plotxy ticks total\nset total restcount + total \nplot-pen-down plotxy ticks total\n\n\nset-current-plot-pen \"Transcount\"\nplot-pen-up plotxy ticks total\nset total transcount + total\nplot-pen-down plotxy ticks total\n\nset-current-plot-pen \"Searching\"\nplot-pen-up plotxy ticks total\nset total searchcount + total\nplot-pen-down plotxy ticks total\n\nset-current-plot-pen \"Feeding\"\nplot-pen-up plotxy ticks total\nset total feedcount + total\nplot-pen-down plotxy ticks total\n\n;let t2 time-budget-range\n;if ticks > t2         \n;[set-plot-x-range (ticks - t2) ticks]"
 PENS
 "Feeding" 1.0 1 -10899396 true "" ""
 "Searching" 1.0 1 -13345367 true "" ""
 "Transcount" 1.0 1 -7500403 true "" ""
 "Resting" 1.0 1 -16777216 true "" ""
 "Starving" 1.0 1 -2674135 true "" ""
-"Socialising" 1.0 0 -955883 true "" ""
 
 PLOT
 1647
@@ -1285,7 +1284,7 @@ INPUTBOX
 273
 317
 No.-of-days
-5
+1
 1
 0
 Number
@@ -1327,7 +1326,7 @@ INPUTBOX
 74
 449
 T_b
-3.19
+17.91
 1
 0
 Number
@@ -1456,7 +1455,7 @@ PLOT
 259
 2103
 513
-Different in reserve level over time
+Difference in reserve level over time
 NIL
 NIL
 0.0
@@ -1541,7 +1540,7 @@ INPUTBOX
 1737
 825
 V_pres
-434.75663
+354.87806
 1
 0
 Number
@@ -1552,7 +1551,7 @@ INPUTBOX
 1737
 888
 wetstorage
-263.08554
+349.04023
 1
 0
 Number
@@ -1563,7 +1562,7 @@ INPUTBOX
 1736
 1017
 wetgonad
-0
+0.26533
 1
 0
 Number
@@ -1574,7 +1573,7 @@ INPUTBOX
 1737
 953
 wetfood
-25.89657
+19.86988
 1
 0
 Number
@@ -1645,7 +1644,7 @@ PLOT
 768
 2107
 1018
-Movement and maintenance costs
+Movement costs
 Time
 Movement cost (J/cm^3)
 0.0
@@ -1659,22 +1658,55 @@ PENS
 "Movement cost" 1.0 0 -11221820 true "" ";plot [Movement-cost] of turtle 0\nplot sum movelist"
 
 MONITOR
-804
-906
-954
-951
-Time spent socialising
-socialcount
-0
+974
+975
+1124
+1020
+NIL
+movelist
+2
 1
 11
+
+INPUTBOX
+1165
+1034
+1692
+1094
+fh
+/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Results/
+1
+0
+String
+
+PLOT
+2021
+516
+2317
+759
+Zenith
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot zenith"
 
 @#$#@#$#@
 > ##Version 6.1.1 (30-6-16)
 
+> 6.1.1 (26-10-16)
+> Added 'fh' variable to set file handle for exporting plots to local hard drive
+
+>> In progress due to "NLCommand("set strategy", NL_strategy)" error in R ('RNL_new trans model_with DEB_1.6.1_olve_movement cost.R')
 
 > 6.1.1 (25-10-16)
-> Added movement cost plot.
+> Added movement cost plot and 'movelist' list to calculate cumulative sum of movement costs.
 
 > 6.1.1 (24-10-16)
 > Added movement cost to Socialise state (Optimising strategy). Movement cost now added to all movement phases (Searching, Socialising, Shade searching).
@@ -1685,7 +1717,6 @@ socialcount
 > 6.1.1. (29-6-16)
 
 > Added movement cost variable to 'to search' and 'to shade-search' procedures (set reserve-level reserve-level - Movement-cost).
-> Added activity-stte = "S" to shade-search.
 
 > 6.1.1. (16-6-16)
 
