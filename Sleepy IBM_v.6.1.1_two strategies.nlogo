@@ -12,7 +12,7 @@
 ; 1 patch = 2 m
 ; 1 tick = 2 min
 ; 1 day = 720 ticks
-; i tick = 2 bites possible for small food; 4 bites possible for large food
+; 1 tick = 2 bites possible for small food; 4 bites possible for large food
 
 ;*********************************************************
 ;*********************   Interface    ********************
@@ -26,7 +26,6 @@
 ; Energy gain of individual
 ; =================
 ; Low-food gain:  Energy gain (J) from small food items (Brown 1991).
-; High-food gain: Energy gain (J) from large food items (Brown 1991).
 ; kap_X:          Converison efficiency of assimilated energy from food (J) (Kooijman 2010).
 
 ; Food patch growth
@@ -65,7 +64,8 @@ globals
   tempXY
   gutfull            ; Reports gut level of DEB model
   movelist           ; List of cumulative movement costs
-  fh_                 ; String for working dir to export results
+  fh_                ; String for working dir to export results
+  ;Shade-density      ; Choose between randomly distributed or randomly clumped shade patches in landscape
   ]
 
 turtles-own
@@ -111,6 +111,7 @@ breed
 [suns sun]
 breed
 [homeranges homerange]
+
 ;********************************************************************************************************************
 ;***********************************************      SETUP      ****************************************************
 ;********************************************************************************************************************
@@ -149,7 +150,7 @@ to setup
   [set patch-type "Sun"
     set pcolor (random 1 + blue)]
 
-  let NumFoodPatches Food-patches
+  let NumFoodPatches Food-patches / 10
   ask n-of NumFoodPatches patches [
     ask n-of 10 patches in-radius 4 [ ; Sets 10 random food patches within a 5-patch radius of Food-patches
     let food-amount random 100
@@ -171,6 +172,9 @@ to setup
       set pcolor black]
       set patch-type "Shade"
       ]
+
+ask patch 0 0 [set patch-type "Shade"
+  set pcolor black]
 
 set movelist (list 0)
 ;  ask one-of patches with [patch-type = "Shade"]
@@ -1112,7 +1116,7 @@ INPUTBOX
 98
 317
 Shade-patches
-100000
+1000
 1
 0
 Number
@@ -1123,7 +1127,7 @@ INPUTBOX
 190
 317
 Food-patches
-10000
+1000
 1
 0
 Number
@@ -1214,9 +1218,9 @@ transcount
 11
 
 SWITCH
-101
+102
 172
-219
+220
 205
 show-plots?
 show-plots?
@@ -1655,7 +1659,7 @@ true
 false
 "" ""
 PENS
-"Movement cost" 1.0 0 -11221820 true "" ";plot [Movement-cost] of turtle 0\nplot sum movelist"
+"Movement cost" 1.0 0 -11221820 true "" ";plot [Movement-cost] of turtle 0\nplot precision sum movelist 10"
 
 MONITOR
 974
@@ -1698,7 +1702,14 @@ PENS
 "default" 1.0 0 -16777216 true "" "plot zenith"
 
 @#$#@#$#@
-> ##Version 6.1.1 (30-6-16)
+> ##Version 6.1.1 (3-1-17)
+
+> 6.1.1  (6-1-17)
+> Set patch 0 0 as Shade
+
+> 6.1.1  (3-1-17)
+> Added random and clumped shade patch distribution
+> Matched food and shade patch output with input so initial food/shade patch load is divided by 10
 
 > 6.1.1 (26-10-16)
 > Added 'fh' variable to set file handle for exporting plots to local hard drive
