@@ -1,12 +1,20 @@
 # RNL_new trans model_with DEB_1.6.2
 
-# 30-11-16
-# updated zenith angle update code
+# 5-1-17 RNL_new trans model_with DEB_1.6.2
+# moved gutfull from 'auxiliary params' to 'update animal and env traits'
+# added Random and Clumped shade density input (shadedens) for "Sleepy IBM_v.6.1.1_two strategies_shadedens.nlogo"  
+# updated 'Sleepy IBM_v.6.1.1_two strategies.nlogo' NL model so food patch input matches output (Food-patches / 10)
+# updated movement strategy input
+
+# 1-12-16 RNL_new trans model_with DEB_1.6.2
+# updated zenith angle code
+
+# 30-11-16 RNL_new trans model_with DEB_1.6.1_olve_movement cost
 # added new DEB estimations (Mike)
 # updated soil moisture input (Mike)
 # updated mass input from DEB calcs
 
-#24-10-16
+#24-10-16 RNL_new trans model_with DEB_1.6.1_olve_movement cost
 # added movement cost (loco), spatial movement, spdf, and homerange plot outputs to export results loop
 # set movement cost to miniscule amount when not searching to fix feeding behav on green food patches (NLCommand("set Movement-cost", 1e-09) 
 # added new direct movement cost (loco)
@@ -133,11 +141,11 @@ install.packages("/Users/malishev/Documents/Melbourne Uni/Programs/R code/rJava/
 # install.packages(NicheMapR)
 # library(NicheMapR) 
 setwd("/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM")
-setwd("C:/Users/mrke/My Dropbox/Student Projects/sleepy IBM")
+#setwd("C:/Users/mrke/My Dropbox/Student Projects/sleepy IBM")
 source('DEB.R')
 source('onelump_varenv.R')
 
-# read in microclimate data
+#----------- read in microclimate data ---------------
 tzone<-paste("Etc/GMT-",10,sep="")
 metout<-read.csv('metout.csv')
 soil<-read.csv('soil.csv')
@@ -171,8 +179,6 @@ Tairfun_sun<- approxfun(time, micro_sun[,4], rule = 2)
 Qsolfun_shd<- approxfun(time, micro_shd[,8]*.1, rule = 2)
 Tradfun_shd<- approxfun(time, rowMeans(cbind(micro_shd[,6],micro_shd[,9])), rule = 2)
 Tairfun_shd<- approxfun(time, micro_shd[,4], rule = 2)
-
-
 
 VTMIN<- 26 # 3.7 #from Bundey field site (2-9-14)
 VTMAX<- 35 # 51 #from max(results$Tb)
@@ -210,7 +216,7 @@ E_0=debpars[24] # energy of an egg (J)
 mh = 1 # survivorship of hatchling in first year
 mu_E = 585000 # molar Gibbs energy (chemical potential) of reserve (J/mol)
 E_sm=186.03*6
-gutfull <- 1
+
 # set initial state
 E_pres_init = (debpars[16]*debpars[8]/debpars[14])/(debpars[13]) # initial reserve
 E_m <- E_pres_init
@@ -238,34 +244,31 @@ library(RNetLogo); library(adehabitatHR); library(sp); library(rgeos); library(m
 library(rJava) # run rJava?
 
 nl.path<-"/Users/malishev/Documents/Melbourne Uni/Programs/NetLogo 5.3.1/"
-nl.path<-"C:/Program Files/NetLogo 5.3.1/"
+#nl.path<-"C:/Program Files/NetLogo 5.3.1/"
 #nl.path<-"/Users/malishev/Documents/Melbourne Uni/Programs/NetLogo 5.3.1/app" # for running in El Capitan
 #NLStart(nl.path, gui=F, nl.obj=NULL, is3d=FALSE)
 NLStart(nl.path)
-model.path<-"/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Sleepy IBM_v.6.1.1_two strategies.nlogo"
-model.path<-"C:/Users/mrke/My Dropbox/Student Projects/sleepy IBM/Sleepy IBM_v.6.1.1_two strategies.nlogo"
+model.path<-"/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Sleepy IBM_v.6.1.1_two strategies_shadedens.nlogo"
+#model.path<-"C:/Users/mrke/My Dropbox/Student Projects/sleepy IBM/Sleepy IBM_v.6.1.1_two strategies.nlogo"
 NLLoadModel(model.path)
 
+# set results path
 results.path<-"/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Results/"
-results.path<-"C:/Users/mrke/My Dropbox/Student Projects/sleepy IBM/Results/"
+#results.path<-"C:/Users/mrke/My Dropbox/Student Projects/sleepy IBM/Results/"
 
 # ****************************************** setup NETLOGO MODEL **********************************
 
 # 1. update animal and env traits
 month<-"sep"
 #mass<-800             # Weight in grams
-NL_shade<-100000L          # Shade patches
-NL_food<-10000L          # Food patches (*10)
-NL_days<-1         # No. of days simulated
+NL_shade<-1000L          # Shade patches
+#NL_shade<-100000L
+NL_food<-1000L          # Food patches
+#NL_food<-100000L 
+NL_days<-3       # No. of days simulated
 NL_gutthresh<-0.75
-strategy<-function(strategy){ # set movement strategy 
-	if (strategy == "O"){
-		strategy<-"Optimising"
-		}else{
-		strategy<-"Satisficing"
-		}
-	}
-	
+gutfull<-0.8
+
 # 2. update initial conditions for DEB model 
 Es_pres_init<-(E_sm*gutfull)*V_pres_init
 acthr<-1
@@ -319,23 +322,41 @@ NL_max_reserve<-E_m    # Maximum reserve level
 NL_maint<-round(p_M, 3)               # Maintenance cost
 NL_move<-round(loco, 3) 		      # Movement cost
 NL_zen<-Zenfun(1*60*60)     # Zenith angle
-#NL_strategy<-strategy("O")  # movement strategy: "O" or "S"
-NLCommand("set strategy \"Optimising\" ") # works
-#NLCommand("set strategy", NL_strategy)
+
+strategy<-function(strategy){ # set movement strategy 
+  if (strategy == "O"){
+    NLCommand("set strategy \"Optimising\" ") 
+    }else{
+    NLCommand("set strategy \"Satisficing\" ") 
+    }
+  }
+strategy("S") # "S"
+
+# if using Sleepy IBM_v.6.1.1_two strategies_shadedens.nlogo model
+if (model.path=="/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Sleepy IBM_v.6.1.1_two strategies_shadedens.nlogo"){
+shadedens<-function(shadedens){ # set movement strategy 
+  if (shadedens == "Random"){
+    NLCommand("set Shade-density \"Random\" ") 
+    }else{
+    NLCommand("set Shade-density \"Clumped\" ") 
+    }
+  }
+shadedens("Clumped") # "Clumped"
+}
 
 sc<-1 # sim count for automating writing of each sim results to file (set before NL loop)
 for (i in 1:sc){ # start sc sim loop
 
 NLCommand("set Shade-patches",NL_shade,"set Food-patches",NL_food,"set No.-of-days",NL_days,"set T_b precision",
 NL_T_b, "2","set T_opt_lower precision", NL_T_b_min, "2","set T_opt_upper precision", NL_T_b_max, "2",
-"setup", "set reserve-level", NL_reserve, "set Maximum-reserve", NL_max_reserve, "set Maintenance-cost", NL_maint,
+"set reserve-level", NL_reserve, "set Maximum-reserve", NL_max_reserve, "set Maintenance-cost", NL_maint,
 "set Movement-cost precision", NL_move, "3", "set zenith", NL_zen, "set ctminthresh", NL_ctminthresh, 
 "set gutthresh", NL_gutthresh, 'set gutfull', gutfull, 'set V_pres precision', V_pres, "5", 'set wetstorage precision', wetstorage, "5", 
-'set wetfood precision', wetfood, "5", 'set wetgonad precision', wetgonad, "5")
+'set wetfood precision', wetfood, "5", 'set wetgonad precision', wetgonad, "5","setup")
 
 #NLCommand("inspect turtle 0")
 
-NL_ticks<-NL_days / (2 / 60 / 24) * 3 # No. of NL ticks (measurement of days)
+NL_ticks<-NL_days / (2 / 60 / 24) # No. of NL ticks (measurement of days)
 NL_T_opt_l<-NLReport("[T_opt_lower] of turtle 0")
 NL_T_opt_u<-NLReport("[T_opt_upper] of turtle 0")
 
@@ -391,7 +412,8 @@ rate<-Tbs$dTc
 Tc_init<-Tb
 
 NLCommand("set T_b precision", Tb, "2") # Updating Tb
-NLCommand("set zenith", Zenfun(i*60*60)) # Updating zenith
+#NLCommand("set zenith", Zenfun(i*60*60)) # Updating zenith
+NLCommand("set zenith", Zenfun(times3[2])) # Updating zenith
 
 # time spent below VTMIN
 ctminhours<-NLReport("[ctmincount] of turtle 0") * 2/60 # ticks to hours
@@ -544,25 +566,25 @@ if (exists("results")){  #if results exist
 		#export NL plots
 		month<-"sep"
 		#spatial plot
-		sfh<-paste(month,NL_days,round(mass,0),NL_shade,as.integer(NL_food*10),"_",sc,"_move","",sep="");sfh
+		sfh<-paste(month,NL_days,round(mass,0),NL_shade,as.integer(NL_food),"_",sc,"_move","",sep="");sfh
 		NLCommand(paste("export-plot \"Spatial coordinates of transition between activity states\" \"",results.path,sfh,".csv\"",sep=""))
 		#temp plot 
-		tfh<-paste(month,NL_days,round(mass,0),NL_shade,as.integer(NL_food*10),"_",sc,"_temp",sep="")
-		NLCommand(paste("export-plot \"Body temperature (T_b)\" \"",results.path,sfh,tfh,".csv\"",sep=""))
+		tfh<-paste(month,NL_days,round(mass,0),NL_shade,as.integer(NL_food),"_",sc,"_temp",sep="")
+		NLCommand(paste("export-plot \"Body temperature (T_b)\" \"",results.path,tfh,".csv\"",sep=""))
 		#activity budget
-		afh<-paste(month,NL_days,round(mass,0),NL_shade,as.integer(NL_food*10),"_",sc,"_act","",sep="");afh
+		afh<-paste(month,NL_days,round(mass,0),NL_shade,as.integer(NL_food),"_",sc,"_act","",sep="");afh
 		NLCommand(paste("export-plot \"Global time budget\" \"",results.path,afh,".csv\"",sep=""))
 		#text output
-		xfh<-paste(month,NL_days,round(mass,0),NL_shade,as.integer(NL_food*10),"_",sc,"_txt",sep="");xfh
+		xfh<-paste(month,NL_days,round(mass,0),NL_shade,as.integer(NL_food),"_",sc,"_txt",sep="");xfh
 		NLCommand(paste("export-output \"",results.path,xfh,".csv\"",sep=""))
 		#gut level
-		gfh<-paste(month,NL_days,round(mass,0),NL_shade,as.integer(NL_food*10),"_",sc,"_gut","",sep="");gfh
+		gfh<-paste(month,NL_days,round(mass,0),NL_shade,as.integer(NL_food),"_",sc,"_gut","",sep="");gfh
 		NLCommand(paste("export-plot \"Gutfull\" \"",results.path,gfh,".csv\"",sep=""))
 		#wet mass 
-		mfh<-paste(month,NL_days,round(mass,0),NL_shade,as.integer(NL_food*10),"_",sc,"_wetmass","",sep="");mfh
+		mfh<-paste(month,NL_days,round(mass,0),NL_shade,as.integer(NL_food),"_",sc,"_wetmass","",sep="");mfh
 		NLCommand(paste("export-plot \"Total wetmass plot\" \"",results.path,mfh,".csv\"",sep=""))
 		#movement cost (loco) 
-		lfh<-paste(month,NL_days,round(mass,0),NL_shade,as.integer(NL_food*10),"_",sc,"_loco","",sep="");lfh
+		lfh<-paste(month,NL_days,round(mass,0),NL_shade,as.integer(NL_food),"_",sc,"_loco","",sep="");lfh
 		NLCommand(paste("export-plot \"Movement costs\" \"",results.path,lfh,".csv\"",sep=""))
 	}
 } # ********************** end sc sim loop **********************
@@ -571,12 +593,7 @@ if (exists("results")){  #if results exist
 #*********************** end NETLOGO SIMULATION ****************************
 #***************************************************************************
 
-
-
-
 results<-as.data.frame(results);results7<-as.data.frame(results7)   
-
-par(mfrow=c(1,1))
 
 # plotting debout results
 plot(results$V_pres,type='h',ylim=c(0,max(results$V_pres)))
@@ -652,30 +669,30 @@ month<-"sep"
 #dir = /Applications/Programs/NetLogo 5.0.5/Soft foraging model/Simulations
 
 #spatial plot
-sfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food*10,"_move","",sep="");sfh
+sfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food,"_move","",sep="");sfh
 #NLCommand("export-plot \"Spatial coordinates of transition between activity states\" \"Simulations/spatialplot.csv\"")
 NLCommand(paste("export-plot \"Spatial coordinates of transition between activity states\" \"Simulations/",sfh,".csv\"",sep=""))
 # home range
-hfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food*10,"_homerange","",sep="");hfh
+hfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food,"_homerange","",sep="");hfh
 # reserve plot
-rfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food*10,"_reserve","",sep="");rfh
+rfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food,"_reserve","",sep="");rfh
 #NLCommand("export-plot \"Reserve level and starvation reserve over time\" \"Simulations/reserveplot.csv\"")
 NLCommand(paste("export-plot \"Reserve level and starvation reserve over time\" \"Simulations/",rfh,".csv\"",sep=""))
 #temp plot
-tfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food*10,"_temp",sep="");tfh
+tfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food,"_temp",sep="");tfh
 #NLCommand("export-plot \"Body temperature (T_b)\" \"Simulations/tempplot.csv\"")
 NLCommand(paste("export-plot \"Body temperature (T_b)\" \"Simulations/",tfh,".csv\"",sep=""))
 # activity budget
-afh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food*10,"_act","",sep="");afh
+afh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food,"_act","",sep="");afh
 #NLCommand("export-plot \"Global time budget\" \"Simulations/activitybudget.csv\"")
 NLCommand(paste("export-plot \"Global time budget\" \"Simulations/",afh,".csv\"",sep=""))
 # world view
 NLCommand("export-view \"Simulations/worldview.png\"")
 # text output
-xfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food*10,"_txt",sep="");xfh
+xfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food,"_txt",sep="");xfh
 NLCommand(paste("export-output \"Simulations/",xfh,".csv\"",sep=""))
 # gut level
-gfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food*10,"_gut","",sep="");gfh
+gfh<-paste(month,NL_days,round(mass,0),NL_shade,NL_food,"_gut","",sep="");gfh
 #NLCommand("export-plot \"Global time budget\" \"Simulations/activitybudget.csv\"")
 NLCommand(paste("export-plot \"Gutfull\" \"Simulations/",gfh,".csv\"",sep=""))
 
@@ -722,7 +739,6 @@ plot(shade.results$tick,shade.results$Tb, col="blue")
 
 # ------------------ Tb plot per month ------------------------
 	
-
 if (exists("results")){
   newones<-results
   }
@@ -741,7 +757,7 @@ sticktime<-shade.newones$tick * 2 / 60 / 24 # convert to real days
 
 month<-"dec15"
 par(pty="m")
-fh<-paste(month,NL_days,mass,NL_shade,NL_food*10,"_2",sep="")
+fh<-paste(month,NL_days,mass,NL_shade,NL_food,"_2",sep="")
 ttl<-paste("From ",daystart," + ",NL_days,"days ;","Weight =",mass,"g ; Shade =", NL_shade,"; Food =", NL_food,"; VTMIN", NL_T_b_min,"C")
 pdf(paste("/Users/matthewmalishev/Documents/Manuscripts/Malishev and Kearney/Figures/Simulations/Tb plot/",fh,".pdf",sep=""),width=15,height=15,paper="a4r",title=ttl)
 #plot.new()
@@ -769,7 +785,7 @@ dev.off()
 
 par(mfrow=c(1,1),mar=c(5,6,5,5),pty="m")
 month<-"all"
-fh<-paste(month,NL_days,mass,NL_shade,NL_food*10,"",sep="");fh
+fh<-paste(month,NL_days,mass,NL_shade,NL_food,"",sep="");fh
 ttl<-paste("From ",daystart," + ",NL_days,"days ;","Weight =",mass,"g ; Shade =", NL_shade,"; Food =", NL_food,"; VTMIN", NL_T_b_min,"C")
 pdf(paste("/Users/matthewmalishev/Documents/Manuscripts/Malishev and Kearney/Figures/Simulations/Tb plot/",fh,".pdf",sep=""),width=15,height=15,paper="a4r",title=ttl)
 #plot.new()
@@ -875,7 +891,7 @@ month<-"all"
 par(new=T)
 par(pty="s")
 #save the homerange polygon into a pdf
-fh<-paste(month,NL_days,mass,NL_shade,NL_food*10,"_homerange","",sep="");fh
+fh<-paste(month,NL_days,mass,NL_shade,NL_food,"_homerange","",sep="");fh
 ttl<-paste("From ",daystart," + ",NL_days,"days ;","Weight =",mass,"g ; Shade =", NL_shade,"; Food =", NL_food,"; VTMIN", NL_T_b_min,"C")
 #pdf(paste("/Users/matthewmalishev/Documents/Manuscripts/Malishev and Kearney/Figures/Simulations/Home range polygon/",fh,".pdf",sep=""),width=15,height=15,paper="a4r",title=ttl)
 pdf(paste("/Users/matthewmalishev/Documents/Manuscripts/Malishev and Kearney/Figures/Simulations/Home range polygon/",fh,".pdf",sep=""))
@@ -989,7 +1005,7 @@ drest<-dec15_act[,13:14]
 # plot difference between time spent in activity states in early vs late season
 par(mfrow=c(1,1),mar=c(5,6,5,5),pty="m")
 month<-"diffr"
-fh<-paste(month,NL_days,mass,NL_shade,NL_food*10,"_act","",sep="");fh
+fh<-paste(month,NL_days,mass,NL_shade,NL_food,"_act","",sep="");fh
 pdf(paste("/Users/matthewmalishev/Documents/Manuscripts/Malishev and Kearney/Figures/Simulations/Activity budget/",fh,".pdf",sep=""))
 jpeg(paste("/Users/matthewmalishev/Documents/Manuscripts/Malishev and Kearney/Figures/Simulations/Activity budget/",fh,".jpeg",sep=""))
 
@@ -1174,7 +1190,8 @@ month<-"sep15"
 mr<-"s"
 feed_cex<-eval(parse(text=paste("rbind(",mr,"feed_move$x,",mr,"feed_move$y)",sep="")))
 rest_cex<-eval(parse(text=paste("rbind(",mr,"rest_move$x,",mr,"rest_move$y)",sep="")))
-
+str(feed_cex)
+tail(sfeed_move)
 # feed_cex<-rbind(sfeed_move$x,sfeed_move$y);feed_cex
 # rest_cex<-rbind(srest_move$x,srest_move$y)
 
@@ -1182,7 +1199,7 @@ rest_cex<-eval(parse(text=paste("rbind(",mr,"rest_move$x,",mr,"rest_move$y)",sep
 #rest_cex<-rest_cex[, !duplicated(t(rest_cex))]
 
 #export plot to file
-fh<-paste(month,NL_days,mass,NL_shade,NL_food*10,"_move","",sep="");fh
+fh<-paste(month,NL_days,mass,NL_shade,NL_food,"_move","",sep="");fh
 pdf(paste("/Users/matthewmalishev/Documents/Manuscripts/Malishev and Kearney/Figures/Simulations/Movement trajectories/",fh,".pdf",sep=""))
 jpeg(paste("/Users/matthewmalishev/Documents/Manuscripts/Malishev and Kearney/Figures/Simulations/Movement trajectories/",fh,".jpeg",sep=""))
 
