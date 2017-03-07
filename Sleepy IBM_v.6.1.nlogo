@@ -147,7 +147,7 @@ to setup
   [set patch-type "Sun"
     set pcolor (random 1 + blue)]
 
-  let NumFoodPatches Food-patches
+   let NumFoodPatches Food-patches / 10 ; divide by 10 because patches are clumped
   ask n-of NumFoodPatches patches [
     ask n-of 10 patches in-radius 4 [ ; Sets 10 random food patches within a 5-patch radius of Food-patches
     let food-amount random 100
@@ -169,6 +169,9 @@ to setup
       set pcolor black]
       set patch-type "Shade"
       ]
+
+ask patch 0 0 [set patch-type "Shade"
+  set pcolor black]
 
 ;  ask one-of patches with [patch-type = "Shade"]
 ;  [sprout 1]
@@ -1007,7 +1010,7 @@ INPUTBOX
 98
 317
 Shade-patches
-100000
+1000
 1
 0
 Number
@@ -1018,7 +1021,7 @@ INPUTBOX
 190
 317
 Food-patches
-10000
+1000
 1
 0
 Number
@@ -1515,6 +1518,10 @@ Number
 
 @#$#@#$#@
 > ##Version 6.1 (8-4-16)
+
+> 6.1  (6-1-17)
+> Set patch 0 0 as Shade
+> Matched food and shade patch output with input so initial food/shade patch load is divided by 10
 
 > 6.1 (22-10-16)
 > Changed all instances of Min-T_b and Max-T_b to T_opt_lower and T_opt_upper.
