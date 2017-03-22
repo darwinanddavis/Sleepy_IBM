@@ -116,26 +116,6 @@ breed
 ;***********************************************      SETUP      ****************************************************
 ;********************************************************************************************************************
 
-;;; testing file import of sleepy lidar
-;to startup
-;  ;; read the elevations from an external file
-;  ;; note that the file is formatted as a list
-;  ;; so we only have to read once into a local variable.
-;  file-open "/Users/matthewmalishev/Documents/Postgrad study/Melbourne Uni/Data/Sleepies/waddleometer_shade/"
-;  let patch-elevations file-read
-;  file-close
-;  set color-max max patch-elevations  ;; put a little padding on the upper bound so we don't get too much
-;                                           ;; white and higher elevations have a little more variation.
-;  let min-elevation min patch-elevations
-;  ;; adjust the color-min a little so patches don't end up black
-;  set color-min min-elevation - ((color-max - min-elevation) / 10)
-;  ;; transfer the date from the file into the sorted patches
-;  ( foreach sort patches patch-elevations
-;    [ ask ?1 [ set elevation ?2 ] ] )
-;  ;setup
-;end
-
-
 to setup
   ca
   if Food-patches + Shade-patches > count patches
@@ -411,9 +391,9 @@ to make-decision
      ; [set activity-state "R"]
     ]
 
-                               ; 28-11-14: Only works with maint. or movement costs, otherwise reserve level = Max. reserve and turtle chooses to rest
-    if (activity-state = "F"); Use this procedure to eliminate turtle returning to shade patch after every feeding bout and to eliminate min-energy parameter. Using min-energy will cause problems in model with soil moisture profile updating food growth.
-    [                          ; Turning empty food patches into Sun patches elimates the need for min-energy.
+
+    if (activity-state = "F")
+    [
       ifelse (gutfull < gutthresh) ;and ([patch-type] of patch-here = "Food") ; if gut is not full, keep feeding, else stop.
       [
       ask turtle 0
