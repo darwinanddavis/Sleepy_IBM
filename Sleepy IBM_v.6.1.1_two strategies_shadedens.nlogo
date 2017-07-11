@@ -116,6 +116,26 @@ breed
 ;***********************************************      SETUP      ****************************************************
 ;********************************************************************************************************************
 
+;;; testing file import of sleepy lidar
+;to startup
+;  ;; read the elevations from an external file
+;  ;; note that the file is formatted as a list
+;  ;; so we only have to read once into a local variable.
+;  file-open "/Users/matthewmalishev/Documents/Postgrad study/Melbourne Uni/Data/Sleepies/waddleometer_shade/"
+;  let patch-elevations file-read
+;  file-close
+;  set color-max max patch-elevations  ;; put a little padding on the upper bound so we don't get too much
+;                                           ;; white and higher elevations have a little more variation.
+;  let min-elevation min patch-elevations
+;  ;; adjust the color-min a little so patches don't end up black
+;  set color-min min-elevation - ((color-max - min-elevation) / 10)
+;  ;; transfer the date from the file into the sorted patches
+;  ( foreach sort patches patch-elevations
+;    [ ask ?1 [ set elevation ?2 ] ] )
+;  ;setup
+;end
+
+
 to setup
   ca
   if Food-patches + Shade-patches > count patches
@@ -226,7 +246,7 @@ to go
   [
     get-homerange
     print "All turtles dead. Check output of model results."
-    repeat 3 [beep wait 0.2]
+    repeat 5 [beep wait 0.5]
     stop
     save-world
     ]
@@ -299,12 +319,14 @@ to make-decision
 ;      [;set label "Full gut"
 ;        stop ]
 ;      [
-      if [patch-type] of patch-here != "Shade"
+        if [patch-type] of patch-here != "Shade"
       [shade-search]
 ;     ] ;close else loop for ifelse gutthresh and T_b conditional above
       if ([patch-type] of patch-here = "Shade") and (T_b < T_b_basking_)
       [set in-shade? TRUE
-        set in-food? FALSE]
+       set in-food? FALSE
+         set restcount restcount + 1; *** Outcomment to exclude time spent searching for shade in restcount ***
+         ]
       ]
     if (activity-state = "R") and (T_b >= T_b_basking_) and (T_b < T_opt_upper) ; Basking behaviour
     [set in-shade? FALSE
@@ -312,12 +334,12 @@ to make-decision
  ;      set transcount transcount + 1 ; Outcomment to include basking behaviour as activity state
  ;      plotxy xcor ycor
     ]
- set restcount restcount + 1
+; set restcount restcount + 1 ; *** uncomment to include time spent searching for shade in restcount ***
     ]
      [; else optimising loop
         if (activity-state = "R")
     [
-        set restcount restcount + 1
+;        set restcount restcount + 1 ; *** uncomment to include time spent searching for shade in restcount ***
        ; set label "Resting"
       if ((T_b <= T_opt_upper) and (T_b >= T_opt_lower)); and reserve-level < search-energy
       [set transcount transcount + 1
@@ -391,20 +413,22 @@ to make-decision
       [shade-search]]
       if ([patch-type] of patch-here = "Shade") and (T_b < T_b_basking_)
       [set in-shade? TRUE
-        set in-food? FALSE]
+       set in-food? FALSE
+        set restcount restcount + 1] ; *** uncomment to exclude time spent searching for shade in restcount ***
       ]
     if (activity-state = "R") and (T_b >= T_b_basking_) and (T_b < T_opt_upper) ; Basking behaviour
     [set in-shade? FALSE
+      set in-food? FALSE
  ;      set transcount transcount + 1 ; Outcomment to include basking behaviour as activity state
  ;      plotxy xcor ycor
     ]
- set restcount restcount + 1
+; set restcount restcount + 1 ; *** uncomment to include time spent searching for shade in restcount ***
     ]
 
   [
         if (activity-state = "R")
     [
-        set restcount restcount + 1
+;        set restcount restcount + 1 ; *** uncomment to include time spent searching for shade in restcount ***
        ; set label "Resting"
       if ((T_b <= T_opt_upper) and (T_b >= T_opt_lower)); and reserve-level < search-energy
       [set transcount transcount + 1
@@ -413,9 +437,9 @@ to make-decision
      ; [set activity-state "R"]
     ]
 
-
-    if (activity-state = "F")
-    [
+                               ; 28-11-14: Only works with maint. or movement costs, otherwise reserve level = Max. reserve and turtle chooses to rest
+    if (activity-state = "F"); Use this procedure to eliminate turtle returning to shade patch after every feeding bout and to eliminate min-energy parameter. Using min-energy will cause problems in model with soil moisture profile updating food growth.
+    [                          ; Turning empty food patches into Sun patches elimates the need for min-energy.
       ifelse (gutfull < gutthresh) ;and ([patch-type] of patch-here = "Food") ; if gut is not full, keep feeding, else stop.
       [
       ask turtle 0
@@ -1212,10 +1236,10 @@ PENS
 "Resting" 1.0 2 -16777216 true "" "ask turtle 0 [\nif [patch-type] of patch-here = \"Shade\" \n[plotxy xcor ycor]\n]"
 
 MONITOR
-476
-857
-610
-902
+458
+855
+592
+900
 Number of transitions
 transcount
 17
@@ -1223,9 +1247,9 @@ transcount
 11
 
 SWITCH
-201
+200
 173
-319
+318
 206
 show-plots?
 show-plots?
@@ -1293,7 +1317,7 @@ INPUTBOX
 273
 317
 No.-of-days
-5
+1
 1
 0
 Number
@@ -1335,7 +1359,7 @@ INPUTBOX
 74
 449
 T_b
-26
+19.05
 1
 0
 Number
@@ -1383,10 +1407,10 @@ T_b
 11
 
 MONITOR
-474
-806
-555
-851
+459
+802
+540
+847
 Activity state
 [activity-state] of turtle 0
 1
@@ -1438,10 +1462,10 @@ in-food?
 11
 
 MONITOR
-388
-857
-471
-902
+804
+904
+887
+949
 eaten patches
 count patches with [pcolor = 35]
 17
@@ -1549,7 +1573,7 @@ INPUTBOX
 1737
 825
 V_pres
-354.87806
+45.92071
 1
 0
 Number
@@ -1560,7 +1584,7 @@ INPUTBOX
 1737
 888
 wetstorage
-349.04023
+45.16531
 1
 0
 Number
@@ -1571,7 +1595,7 @@ INPUTBOX
 1736
 1017
 wetgonad
-0.26533
+0
 1
 0
 Number
@@ -1582,7 +1606,7 @@ INPUTBOX
 1737
 953
 wetfood
-19.86988
+2.1789
 1
 0
 Number
@@ -1689,30 +1713,75 @@ fh
 String
 
 CHOOSER
-101
+103
 161
-198
+196
 206
 Shade-density
 Shade-density
 "Random" "Clumped"
-0
+1
+
+MONITOR
+388
+856
+454
+901
+NIL
+in-shade?
+17
+1
+11
+
+MONITOR
+2109
+59
+2256
+104
+NIL
+Reserve-level
+17
+1
+11
+
+MONITOR
+2108
+10
+2257
+55
+NIL
+Maximum-reserve
+17
+1
+11
+
+MONITOR
+2111
+108
+2334
+153
+NIL
+Maximum-reserve - Reserve-level
+17
+1
+11
 
 @#$#@#$#@
-> ##Version 6.1.1  Sleepy IBM_v.6.1.1_two strategies (27-4-17)
+> ##Version 6.1.1 (3-1-17)
 
-> 6.1.1_two strategies (5-6-17)
+> 6.1.1_two strategies_shadedens (5-6-17)
 > Added further 'in-food?=FALSE' reporters to searching and resting activity states
 > Added in-food? TRUE to handle-food procedure
 > Removed extra restcount when Reserve-level = Maximum-reserve
 
->6.1.1 Sleepy IBM_v.6.1.1_two strategies (27-4-17)
-> Added Shade-density chooser to set Random or Clumped shade
+> 6.1.1_two strategies_shadedens (1-5-17)
+> Removed restcount counter when turtle is searching for shade.
+> Added restcount to basking behaviour
 
 > 6.1.1  (6-1-17)
 > Set patch 0 0 as Shade
 
-> 6.1.1  (3-1-17)
+> 6.1.1_two strategies_shadedens (3-1-17)
 > Added random and clumped shade patch distribution
 > Matched food and shade patch output with input so initial food/shade patch load is divided by 10
 
