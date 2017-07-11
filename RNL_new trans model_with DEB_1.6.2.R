@@ -147,10 +147,10 @@ source('onelump_varenv.R')
 
 #----------- read in microclimate data ---------------
 tzone<-paste("Etc/GMT-",10,sep="")
-metout<-read.csv('metout.csv')
-soil<-read.csv('soil.csv')
-shadmet<-read.csv('shadmet.csv')
-shadsoil<-read.csv('shadsoil.csv')
+metout<-read.csv('metout_adult.csv')
+soil<-read.csv('soil_adult.csv')
+shadmet<-read.csv('shadmet_adult.csv')
+shadsoil<-read.csv('shadsoil_adult.csv')
 micro_sun_all<-cbind(metout[,2:5],metout[,9],soil[,6],metout[,14:16])
 colnames(micro_sun_all)<-c('dates','JULDAY','TIME','TALOC','VLOC','TS','ZEN','SOLR','TSKYC')
 micro_shd_all<-cbind(shadmet[,2:5],shadmet[,9],shadsoil[,6],shadmet[,14:16])
@@ -260,12 +260,17 @@ results.path<-"/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Resul
 
 # 1. update animal and env traits
 month<-"sep"
-#mass<-800             # Weight in grams
-NL_shade<-1000L          # Shade patches
-#NL_shade<-100000L
-NL_food<-1000L          # Food patches
-#NL_food<-100000L 
-NL_days<-3       # No. of days simulated
+density<-"high"
+NL_days<-5       # No. of days simulated
+
+if(juv==1){ mass<-350};mass     # Weight for juvenile
+if(density=="high"){
+	NL_shade<-100000L       # Shade patches
+	NL_food<-100000L         # Food patches
+	}else{ 
+	NL_shade<-1000L 	# Shade patches
+	NL_food<-1000L	# Food patches
+}
 NL_gutthresh<-0.75
 gutfull<-0.8
 
@@ -330,7 +335,7 @@ strategy<-function(strategy){ # set movement strategy
     NLCommand("set strategy \"Satisficing\" ") 
     }
   }
-strategy("S") # "S"
+strategy("O") # "S"
 
 # if using Sleepy IBM_v.6.1.1_two strategies_shadedens.nlogo model
 if (model.path=="/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Sleepy IBM_v.6.1.1_two strategies_shadedens.nlogo"){

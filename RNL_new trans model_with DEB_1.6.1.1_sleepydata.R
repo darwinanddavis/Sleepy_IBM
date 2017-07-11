@@ -272,10 +272,10 @@ tzone<-paste("Etc/GMT-",10,sep="")
  
 
 
-metout<-read.csv('/Applications/Programs/NetLogo 5.0.5/NicheMapR/Transient heat budget model/metout.csv')
-soil<-read.csv('/Applications/Programs/NetLogo 5.0.5/NicheMapR/Transient heat budget model/soil.csv')
-shadmet<-read.csv('/Applications/Programs/NetLogo 5.0.5/NicheMapR/Transient heat budget model/shadmet.csv')
-shadsoil<-read.csv('/Applications/Programs/NetLogo 5.0.5/NicheMapR/Transient heat budget model/shadsoil.csv')
+metout<-read.csv('/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/metout.csv')
+soil<-read.csv('/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/soil.csv')
+shadmet<-read.csv('/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/shadmet.csv')
+shadsoil<-read.csv('/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/shadsoil.csv')
 micro_sun_all<-cbind(metout[,2:5],metout[,9],metout[,11],metout[,14:16])
 colnames(micro_sun_all)<-c('dates','JULDAY','TIME','TALOC','VLOC','TS','ZEN','SOLR','TSKYC')
 micro_shd_all<-cbind(metout[,2],shadmet[,2:4],shadmet[,8],shadmet[,10],shadmet[,13:15])
@@ -284,7 +284,7 @@ colnames(micro_shd_all)<-c('dates','JULDAY','TIME','TALOC','VLOC','TS','ZEN','SO
 
 # choose a day(s) to simulate
 
-daystart<-paste('09/11/10',sep="") # yy/mm/dd
+daystart<-paste('09/09/05',sep="") # yy/mm/dd
 dayfin<-paste('10/12/31',sep="") # yy/mm/dd
 
 micro_sun<-subset(micro_sun_all, format(as.POSIXlt(micro_sun_all$dates), "%y/%m/%d")>=daystart & format(as.POSIXlt(micro_sun_all$dates), "%y/%m/%d")<=dayfin)
@@ -638,10 +638,8 @@ NL_zen<-Zenf(1*60*60)     # Zenith angle
 
 # -------------- extracting waddle data ---------------------
 install.packages(c("raster","zoo","stringr","rgdal"))
-library(raster)
-library(zoo)
-library(stringr)
-library(rgdal)
+library(raster); library(zoo) ;library(stringr) ;library(rgdal)
+
 # pull waddle data 
 lizard<-read.csv('/Users/camel/Desktop/Matt2016/Data/waddleometer/11885_2009_ALL.csv',stringsAsFactors=FALSE)
 lizard$Month<-str_trim(lizard$Month)
@@ -689,6 +687,8 @@ max(lizard$Northing); max(lizard$Easting)
 
 #plot(difr,xlim=c(min(x[,1],na.rm=TRUE),max(x[,1],na.rm=TRUE)),ylim=c(min(x[,2],na.rm=TRUE),max(x[,2],na.rm=TRUE)),zlim=c(0.5,5)) # plot entire site
 #plot(difr,xlim=c(343450,343500),ylim=c(6248800,6248850),zlim=c(-30,0.05)) # plot a subregion
+# plot(surf,xlim=c(X1,X2),ylim=c(Y1,Y2),zlim=c(150,250),col=bpy.colors(200)) # plot a subregion
+# plot(terr,xlim=c(X1,X2),ylim=c(Y1,Y2),zlim=c(100,300),col=terrain.colors(200)) # plot a subregion
 plot(difr,xlim=c(X1,X2),ylim=c(Y1,Y2),zlim=c(0.5,5)) # plot a subregion
 colvec = adjustcolor(lizard$Month, alpha = 0.1)
 with(lizard,points(lizard$Northing~lizard$Easting,cex=0.5,pch=20,col=colvec)) # plot sleepy GPS
@@ -702,14 +702,14 @@ lizard$Month<-as.numeric(lizard$Month)
 liz<-cbind(lizard$Easting,lizard$Northing)
 lizm<-lizard$Month
 
-spdf<-SpatialPointsDataFrame(c(lizard$Easting,lizard$Northing), lizard$Month)# creates a spatial points data frame (adehabitatHR package)
-homerange<-mcp(spdf,percent=100)
+spdf<-SpatialPointsDataFrame(c(lizard$Easting,lizard$Northing), lizard$Month, proj4string = CRS("+proj=utm +zone=6 +ellps=WGS84"))# creates a spatial points data frame (adehabitatHR package)
+homerange<-mcp(spdf,percent=95)
 
 # plot home range polygon of real lizard
 liz<-cbind(lizard["Easting"],lizard["Northing"])
 df<-data.frame(rep.int(1,length(liz[[1]])))
 length(df)
-spdf<-SpatialPointsDataFrame(liz[1:2],data=df)
+spdf<-SpatialPointsDataFrame(liz[1:2],data=df,proj4string = CRS("+proj=utm +zone=6 +ellps=WGS84"))
 homerange<-mcp(spdf,100)
 colvec = adjustcolor(c("light blue"), alpha = 0.5)
 plot(homerange,col=colvec,border=colvec,
@@ -761,8 +761,10 @@ dayfin<-paste('10/12/31',sep="") # yy/mm/dd
 
 install.packages("NicheMapR")
 library(NicheMapR)
-source('/Users/camel/Desktop/Matt2016/NicheMapR/onelump/DEB.R')
-source('/Users/camel/Desktop/Matt2016/NicheMapR/onelump/onelump_varenv.R')
+
+setwd("/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM")
+source("onelump_varenv.R")
+source("DEB.R")
 
 # read in microclimate data
 tzone<-paste("Etc/GMT-",10,sep="")
@@ -1064,7 +1066,7 @@ plot(shade.results$tick,shade.results$Tb, col="blue")
 #
 
 # need to make new variable for new spdf (movement paths)  ........ under progress
-spdf<-SpatialPointsDataFrame(turtles[1:2], turtles[3]) # creates a spatial points data frame (adehabitatHR package)
+spdf<-SpatialPointsDataFrame(turtles[1:2], turtles[3],proj4string = CRS("+proj=utm +zone=6 +ellps=WGS84")) # creates a spatial points data frame (adehabitatHR package)
 homerange<-mcp(spdf,percent=100)
 
 # draw-homerange ------------------
