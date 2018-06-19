@@ -1,7 +1,31 @@
-# RNL_new trans model_with DEB_1.6.2
+# RNL_new trans model_with DEB_1.6.2.1_juvenile
 
-#19-06-18
-# time stamp for updated file RNL_new trans model_with DEB_1.6.2
+#19-6-18
+# time stamp for updated file RNL_new trans model_with DEB_1.6.2.1_juvenile
+
+#8-6-17
+#updated microclimate conditions for adults and juveniles
+
+# 5-6-17 RNL_new trans model_with DEB_1.6.2.1_juvenile
+# added report of juv DEB params every hour
+# added E_H_pres and fecundity to 'results' output
+
+#29-5-17
+# set new juv params to newborn: mass, L_b = debpars[25]^3, E_H_init = debpars[20]+5, and V_pres_init = debpars[25]^3. search @newborn
+
+#1-5-17
+# 'RNL_new trans model_with DEB_1.6.2.1_juvenile' uses 'Sleepy IBM_v.6.1.1_two strategies_shadedens.nlogo' which excludes restcount when turtle is searching for shade  
+# changed results and turtle file outputs from .R to .csv
+
+#25-1-17
+# simplified dense and sparse resource input to model env setup ("density")
+# added juvenile pars for V_pres_init, E_pres_init, and E_H_init. juvenile pars = <DEB par> / (ultimate length / puberty length). search @juvenile. 
+# changed working directory inputs to general ones 
+# added results path for juvenile outputs
+
+# 10-1-17 RNL_new trans model_with DEB_1.6.2.1_juvenile
+# added juvenile input (microclimate inputs) 
+# shifted daystart and dayfin code location to clean up microclimate input section
 
 # 5-1-17 RNL_new trans model_with DEB_1.6.2
 # moved gutfull from 'auxiliary params' to 'update animal and env traits'
@@ -119,6 +143,12 @@
  # NL reserve level updated in NL setup procedure (:634)
  # X_food updates with NL "[handle-food]"" procedure  (:695)
 
+# install packages
+install.packages(c("RNetLogo", "adehabitatHR","rgeos","sp", "maptools", "raster","rworldmap","rgdal","dplyr"))
+
+library(RNetLogo); library(adehabitatHR); library(sp); library(rgeos); library(maptools); library(raster); library(rworldmap); library(rgdal);library(dplyr)
+library(rJava) # run rJava
+
 # ---------------------------------------------------------------------------
 # ------------------- initial Mac OS and R config ---------------------------
 # ---------------------------------------------------------------------------
@@ -141,30 +171,45 @@ install.packages("/Users/malishev/Documents/Melbourne Uni/Programs/R code/rJava/
 
 # ------------------- for PC and working Mac OSX ---------------------------
 # ------------------- model setup ---------------------------
+#working dir for data 
+wd<-"/Users/malishev/Documents/Melbourne Uni/Programs/"
+
 # install.packages(NicheMapR)
 # library(NicheMapR) 
 setwd("/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM")
-#setwd("C:/Users/mrke/My Dropbox/Student Projects/sleepy IBM")
 source('DEB.R')
 source('onelump_varenv.R')
 
-#----------- read in microclimate data ---------------
+# choose a day(s) to simulate
+daystart<-paste('09/09/05',sep="") # yy/mm/dd
+dayfin<-paste('10/12/31',sep="") # yy/mm/dd
+days<-as.numeric(as.POSIXlt(dayfin)-as.POSIXlt(daystart))
 tzone<-paste("Etc/GMT-",10,sep="")
-metout<-read.csv('metout_adult.csv')
-soil<-read.csv('soil_adult.csv')
-shadmet<-read.csv('shadmet_adult.csv')
-shadsoil<-read.csv('shadsoil_adult.csv')
+
+# using juvenile? 1 for yes; 0 for no
+juv<-1
+report_juv<-0 # report juvenile DEB output every hour
+
+#----------- read in microclimate data ---------------
+if (juv == 1){
+	metout<-read.csv('metout_juv.csv') 
+	soil<-read.csv('soil_juv.csv')
+	shadmet<-read.csv('shadmet_juv.csv')
+	shadsoil<-read.csv('shadsoil_juv.csv')
+	}else{
+	metout<-read.csv('metout_adult.csv')
+	soil<-read.csv('soil_adult.csv')
+	shadmet<-read.csv('shadmet_adult.csv')
+	shadsoil<-read.csv('shadsoil_adult.csv')
+		}
+			
 micro_sun_all<-cbind(metout[,2:5],metout[,9],soil[,6],metout[,14:16])
 colnames(micro_sun_all)<-c('dates','JULDAY','TIME','TALOC','VLOC','TS','ZEN','SOLR','TSKYC')
 micro_shd_all<-cbind(shadmet[,2:5],shadmet[,9],shadsoil[,6],shadmet[,14:16])
 colnames(micro_shd_all)<-c('dates','JULDAY','TIME','TALOC','VLOC','TS','ZEN','SOLR','TSKYC')
 
-# choose a day(s) to simulate
-daystart<-paste('09/09/05',sep="") # yy/mm/dd
-dayfin<-paste('10/12/31',sep="") # yy/mm/dd
 micro_sun<-subset(micro_sun_all, format(as.POSIXlt(micro_sun_all$dates), "%y/%m/%d")>=daystart & format(as.POSIXlt(micro_sun_all$dates), "%y/%m/%d")<=dayfin)
 micro_shd<-subset(micro_shd_all, format(as.POSIXlt(micro_shd_all$dates), "%y/%m/%d")>=daystart & format(as.POSIXlt(micro_shd_all$dates), "%y/%m/%d")<=dayfin)
-days<-as.numeric(as.POSIXlt(dayfin)-as.POSIXlt(daystart))
 
 # create time vectors
 time<-seq(0,(days+1)*60*24,60) #60 minute intervals from microclimate output
@@ -183,8 +228,8 @@ Qsolfun_shd<- approxfun(time, micro_shd[,8]*.1, rule = 2)
 Tradfun_shd<- approxfun(time, rowMeans(cbind(micro_shd[,6],micro_shd[,9])), rule = 2)
 Tairfun_shd<- approxfun(time, micro_shd[,4], rule = 2)
 
-VTMIN<- 26 # 3.7 #from Bundey field site (2-9-14)
-VTMAX<- 35 # 51 #from max(results$Tb)
+VTMIN<- 26 # lower activity Tb
+VTMAX<- 35 # upper activity Tb
 
 # ****************************************** read in DEB parameters *******************************
 
@@ -200,10 +245,11 @@ kap_R=debpars[15] # reproduction efficiency (-)
 p_M=debpars[16] # specific somatic maintenance (J/cm3)
 k_J=debpars[18] # maturity maint rate coefficient (1/h)
 E_G=debpars[19] # specific cost for growth (J/cm3)
-E_Hb=debpars[20] # maturity at birth (J)
+E_Hb=debpars[20] # maturity at birth (J) @newborn
 E_Hp=debpars[21] # maturity at puberty (J)
 h_a=debpars[22]*10^-1 # Weibull aging acceleration (1/h^2)
 s_G=debpars[23] # Gompertz stress coefficient (-)
+L_b = debpars[25]^3 # structural length at birth (cm) @newborn
 
 # set thermal respose curve paramters
 T_REF = debpars[1]-273
@@ -220,49 +266,59 @@ mh = 1 # survivorship of hatchling in first year
 mu_E = 585000 # molar Gibbs energy (chemical potential) of reserve (J/mol)
 E_sm=186.03*6
 
-# set initial state
-E_pres_init = (debpars[16]*debpars[8]/debpars[14])/(debpars[13]) # initial reserve
+# set initial state # @juvenile @newborn
+# initial reserve
+E_pres_init <- (debpars[16]*debpars[8]/debpars[14])/(debpars[13]) 
 E_m <- E_pres_init
-E_H_init = debpars[21] + 5
+#initial maturity 
+#ifelse(juv==1, E_H_init <- (debpars[21] + 5)/1.43, E_H_init <- (debpars[21] + 5)) # old juvenile
+ifelse(juv==1, E_H_init <- (E_Hb + 5), E_H_init <- (E_Hp + 5))
 
-#### change inital size here by multiplying by < 0.85 ####
-V_pres_init = (debpars[26] ^ 3) * 0.85 
+
+#### change inital size here by multiplying by < 0.85 #### 
+# for @juvenile = adult size / (ultimate length / puberty length) = 0.85 / (1.43) = 0.594 
+# for newborn (new juvenile) = L_b
+#ifelse(juv == 1,V_pres_init <- (debpars[26] ^ 3) * 0.594, V_pres_init <- (debpars[26] ^ 3) * 0.85) 
+ifelse(juv == 1,V_pres_init <- L_b, V_pres_init <- (debpars[26] ^ 3) * 0.85) 
 d_V<-0.3
-mass <- V_pres_init + V_pres_init*E_pres_init/mu_E/d_V*23.9
+mass <- V_pres_init + V_pres_init*E_pres_init/mu_E/d_V*23.9; writeLines(paste("Mass = ",mass))
+
+# check juvenile outputs
+if(juv==1){ 
+  writeLines(paste("\n Juvenile outputs \nE_pres_init = ", E_pres_init, "\nE_H_init = ", E_H_init, "\nV_pres_init = ", V_pres_init,"\nMass = ",mass, "\n"))
+} 
+
+# test params for juvenile
+#E_pres_init<- 3000
+#E_H_init <- 20000
+#V_pres_init <- 30
+#mass <- 50
 
 # ***************** end TRANSIENT MODEL SETUP ***************
 # ***********************************************************
 
-
 # initial setup complete, now run the model for a particular 2 min interval
-
 
 # **************************************************************************************************************
 # ***************************************** start NETLOGO SIMULATION  ******************************************
 
 # ****************************************** open NETLOGO *****************************************
 
-install.packages(c("adehabitatHR","rgeos","sp", "maptools", "raster","rworldmap","rgdal","dplyr"))
-library(RNetLogo); library(adehabitatHR); library(sp); library(rgeos); library(maptools); library(raster); library(rworldmap); library(rgdal);library(dplyr)
-library(rJava) # run rJava?
-
-nl.path<-"/Users/malishev/Documents/Melbourne Uni/Programs/NetLogo 5.3.1/"
-#nl.path<-"/Users/malishev/Documents/Melbourne Uni/Programs/NetLogo 5.3.1/app" # for running in Mac OSX El Capitan
+nl.path<-paste0(wd,"NetLogo 5.3.1/")
+#nl.path<-"/Users/malishev/Documents/Melbourne Uni/Programs/NetLogo 5.3.1/app" # for running in El Capitan
 #NLStart(nl.path, gui=F, nl.obj=NULL, is3d=FALSE)
 NLStart(nl.path)
-model.path<-"/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Sleepy IBM_v.6.1.1_two strategies.nlogo"
+model.path<-paste0(wd,"/Sleepy IBM/Sleepy IBM_v.6.1.1_two strategies_shadedens.nlogo")
 NLLoadModel(model.path)
-
-# set path dir to output results
-results.path<-"/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Results/"
 
 # ****************************************** setup NETLOGO MODEL **********************************
 
 # 1. update animal and env traits
 month<-"sep"
-density<-"high"
-NL_days<-5       # No. of days simulated
+density<-"high"  # resource density
+NL_days<-1     # No. of days simulated
 
+mass
 if(density=="high"){
 	NL_shade<-100000L       # Shade patches
 	NL_food<-100000L         # Food patches
@@ -288,6 +344,7 @@ debout<-DEB(step = step, z = z, del_M = del_M, F_m = F_m *
 
 # 3. calc direct movement cost
 # ------- New loco cost 16-10-16 -------
+#V_pres = 3.9752^3 #structure 
 V_pres<-debout[2]
 step<-1/24 #hourly
 #step<-2/1440 #2min
@@ -305,6 +362,7 @@ loco<-VO2*mass*20.1 # convert ml O2 to J = J/h
 loco<-loco+p_M2 # add to p_M = J/h
 loco<-loco/30/V_pres ; loco #J/cm3/2min
 
+
 Es_pres_init<-(E_sm*gutfull)*V_pres_init
 X_food<-3000
 V_pres<-debout[2]
@@ -315,6 +373,7 @@ ctminthresh<-120000
 Tairfun<-Tairfun_shd
 Tc_init<-Tairfun(1)+0.1 # Initial core temperature
 
+# set NL pars
 NL_T_b<-Tc_init       # Initial T_b
 NL_T_b_min<-VTMIN         # Min foraging T_b
 NL_T_b_max<-VTMAX        # Max foraging T_b
@@ -332,8 +391,10 @@ strategy<-function(strategy){ # set movement strategy
     NLCommand("set strategy \"Satisficing\" ") 
     }
   }
-strategy("O") # "S"
+strategy("O") # "O" or "S"
 
+# if using shade clumping
+#if (model.path==paste0(wd,"/Sleepy IBM/Sleepy IBM_v.6.1.1_two strategies_shadedens.nlogo")){
 shadedens<-function(shadedens){ # set movement strategy 
   if (shadedens == "Random"){
     NLCommand("set Shade-density \"Random\" ") 
@@ -341,8 +402,13 @@ shadedens<-function(shadedens){ # set movement strategy
     NLCommand("set Shade-density \"Clumped\" ") 
     }
   }
-shadedens("Clumped") # "Clumped"
+shadedens("Clumped") # "Random" or "Clumped"
+#}
 
+# set results path
+ifelse(juv==1, results.path<-"/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Results/juvenile/", results.path<-"/Users/malishev/Documents/Melbourne Uni/Programs/Sleepy IBM/Results/adult/")
+
+### start sim ###
 sc<-1 # sim count for automating writing of each sim results to file (set before NL loop)
 for (i in 1:sc){ # start sc sim loop
 
@@ -353,7 +419,7 @@ NL_T_b, "2","set T_opt_lower precision", NL_T_b_min, "2","set T_opt_upper precis
 "set gutthresh", NL_gutthresh, 'set gutfull', gutfull, 'set V_pres precision', V_pres, "5", 'set wetstorage precision', wetstorage, "5", 
 'set wetfood precision', wetfood, "5", 'set wetgonad precision', wetgonad, "5","setup")
 
-#NLCommand("inspect turtle 0")
+#NLCommand("inspect turtle 0") # zoom into turtle
 
 NL_ticks<-NL_days / (2 / 60 / 24) # No. of NL ticks (measurement of days)
 NL_T_opt_l<-NLReport("[T_opt_lower] of turtle 0")
@@ -375,7 +441,7 @@ NLDoCommand(1, "go")
 
 ######### Reporting presence of shade
 #if (NLReport("any? turtles")){
-shade<-NLGetAgentSet("in-shade?","turtles", as.data.frame=T); shade<-as.numeric(shade) # returns an agentset of whether turtle is currently on shade patch
+shade<-NLGetAgentSet("in-shade?","turtles", as.data.frame=T); shade<-as.numeric(shade) # returns an agentset of whether turtle is currently in shade patch
 #food<-NLGetAgentSet("in-food?","turtles", as.data.frame=T) ; food<-as.numeric(food)
 #}
 
@@ -423,13 +489,27 @@ if (ctminhours == NL_ctminthresh) {NLCommand("ask turtle 0 [stop]")}
 if(stepcount==1) { # run DEB loop every time step (2 mins)
 stepcount<-0
 
+# report juv DEB params every hour
+if (report_juv==1){
+for(j in seq(0, (NL_ticks),by=720/24)){ # for every hour
+if(i == j){
+	writeLines(paste("\n Juvenile outputs \n Hour = ",j / 30, 
+	"\n E_pres = ", debout[1], 
+	"\nE_H = ", debout[3], 
+	"\nV_pres = ", debout[2],
+	"\nMass = ",mass, 
+	"\n"))
+	}
+	}
+	}
+
 # report activity state
 actstate<-NLReport("[activity-state] of turtle 0")
  # Reports true if turtle is in food 
 actfeed<-NLGetAgentSet("in-food?","turtles", as.data.frame=T); actfeed<-as.numeric(actfeed)
  
 n<-1 # time steps
-step<-2/1440 # step size (2 mins). For hourly: 1/24
+step<-2/1440 # step size (2 mins) for debout. For hourly: 1/24
 # update direct movement cost
 if(actstate == "S"){
 	NLCommand("set Movement-cost", NL_move)
@@ -470,13 +550,16 @@ if(debcall==0){
     TH = TH, E_0 = E_0, 
 		  X=X_food,acthr = acthr, Tb = Tbs$Tc, breeding = 1, E_sm = E_sm, E_pres=debout[1],V_pres=debout[2],E_H_pres=debout[3],q_pres=debout[4],hs_pres=debout[5],surviv_pres=debout[6],Es_pres=debout[7],cumrepro=debout[8],cumbatch=debout[9],p_B_past=debout[10])
 		}
-mass<-debout[22]
-gutfull<-debout[24]
-NL_reserve<-debout[1]
-V_pres<-debout[2]
-wetgonad<-debout[19]
-wetstorage<-debout[20]
-wetfood<-debout[21] 
+mass<-debout[22] # mass
+gutfull<-debout[24] # gut level
+NL_reserve<-debout[1] #E_pres reserve
+V_pres<-debout[2] #structure
+wetgonad<-debout[19] # reproductive mass
+wetstorage<-debout[20] # wet mass volume
+wetfood<-debout[21]  # converted food mass
+E_H_pres<-debout[3] 
+fecundity<-debout[25]
+
 
 #update NL wetmass properties 
 NLCommand("set V_pres precision", V_pres, "5")
@@ -489,7 +572,7 @@ NLCommand("set wetfood precision", wetfood, "5")
 NLDoCommand("plot xcor ycor") 
  
 
-} #--- end DEB loop
+} ###--- end DEB loop
 
 NLCommand("set reserve-level", NL_reserve) # update reserve
 NLCommand("set gutfull", debout[24])# update gut level
@@ -498,9 +581,9 @@ NLCommand("set gutfull", debout[24])# update gut level
 
 # generate results, with V_pres, wetgonad, wetstorage, and wetfood from debout
 if(i==1){
-	results<-cbind(tick,Tb,rate,shade,V_pres,wetgonad,wetstorage,wetfood,NL_reserve) 
+	results<-cbind(tick,Tb,rate,shade,V_pres,wetgonad,wetstorage,wetfood,NL_reserve,E_H_pres,fecundity) 
 	}else{
-		results<-rbind(results,c(tick,Tb,rate,shade,V_pres,wetgonad,wetstorage,wetfood,NL_reserve))
+		results<-rbind(results,c(tick,Tb,rate,shade,V_pres,wetgonad,wetstorage,wetfood,NL_reserve,E_H_pres,fecundity))
 		}
 results<-as.data.frame(results)
 
@@ -548,11 +631,11 @@ if (exists("results")){  #if results exist
 	fh<-results.path; fh
 	for (i in rass){
 		# export all results
-		write.table(results,file=paste(fh,nam,".R",sep=""))
+		write.table(results,file=paste(fh,nam,".csv",sep=""))
 		}
 	for (i in rassh){
 		# export turtle location data
-		write.table(turtles,file=paste(fh,namh,".R",sep=""))
+		write.table(turtles,file=paste(fh,namh,".csv",sep=""))
 		}
 #	for (i in rasss){
 		# export spdf data
@@ -563,7 +646,6 @@ if (exists("results")){  #if results exist
 #		write.table(homerange,file=paste(fh,namhr,".R",sep=""))  
 #		}
 		#export NL plots
-		month<-"sep"
 		#spatial plot
 		sfh<-paste(month,NL_days,round(mass,0),NL_shade,as.integer(NL_food),"_",sc,"_move","",sep="");sfh
 		NLCommand(paste("export-plot \"Spatial coordinates of transition between activity states\" \"",results.path,sfh,".csv\"",sep=""))
@@ -587,6 +669,8 @@ if (exists("results")){  #if results exist
 		NLCommand(paste("export-plot \"Movement costs\" \"",results.path,lfh,".csv\"",sep=""))
 	}
 } # ********************** end sc sim loop **********************
+ifelse(juv==1,print("Juvenile"),print("Adult")); NLReport("strategy"); density
+
 
 
 #*********************** end NETLOGO SIMULATION ****************************
