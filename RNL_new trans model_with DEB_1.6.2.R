@@ -1,6 +1,6 @@
 # RNL_new trans model_with DEB_1.6.2
 
-#19-06-18
+#19-6-18
 # time stamp for updated file RNL_new trans model_with DEB_1.6.2
 
 # 5-1-17 RNL_new trans model_with DEB_1.6.2
@@ -132,11 +132,11 @@ JGR()
 
 # JGR onwards
 # if already loaded, uninstall RNetlogo and rJava
-p<-c("rJava", "RNetlogo")
+p<-c("rJava", "RNetLogo")
 remove.packages(p)
 
 # install Netlogo and rJava from source if haven't already
-install.packages("/Users/malishev/Documents/Melbourne Uni/Programs/R code/RNetlogo/RNetLogo_1.0-2.tar.gz", repos = NULL, type="source")
+install.packages("/Users/malishev/Documents/Melbourne Uni/Programs/R code/RNetlogo/RNetLogo_1.0-4.tar.gz", repos = NULL, type="source")
 install.packages("/Users/malishev/Documents/Melbourne Uni/Programs/R code/rJava/rJava_0.9-8.tar.gz", repos = NULL, type="source")
 
 # ------------------- for PC and working Mac OSX ---------------------------
