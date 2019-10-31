@@ -21,10 +21,9 @@ Individual-based simulation model for forecasting home range patterns and disper
   
 *Files:*        
 
-.R    
-.html    
-.pdf  
-.nlogo      
+.R      
+.nlogo  
+.csv        
 
 ## Instructions  
 
