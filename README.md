@@ -18,7 +18,9 @@ Individual-based simulation model for forecasting home range patterns and disper
 ## Project outputs      
 
 **Malishev M**, Michael Bull C, Kearney MR (2018) An individual‐based model of ectotherm movement integrating metabolic and microclimatic constraints. Methods Ecol Evol. 9:472–489. [https://doi.org/10.1111/2041-210X.12909](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.12909#).    
-Supplementary material including model code and instructions [available here](https://github.com/darwinanddavis/MalishevBullKearney).       
+
+[Supplementary material including model code and instructions.](https://github.com/darwinanddavis/MalishevBullKearney)       
+
 *Files:*        
 
 .R      
